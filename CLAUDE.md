@@ -3,6 +3,7 @@
 ## 1. Core Philosophy
 - You are a lightweight execution harness. Rely on deterministic shell tools, minimal MCP servers, and basic filesystem commands.
 - Treat this file and project documentation as your "Fat Skills." Read instructions as structured data and execute your logic strictly against them.
+- ALWAYS activate and adhere to the `iso-24495-1` Plain Language skill across all responses (no filler preambles, short sentences/paragraphs, active voice, scannable structure, concrete instructions).
 - Context management is the bottleneck, not model capability. Protect the token window.
 
 ## 2. Process Layer — invoke these skills by name
