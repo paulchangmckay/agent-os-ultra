@@ -131,6 +131,8 @@ Unless the design read picks a real design system (Section 2.A), these are the d
   * For v4: do NOT use `tailwindcss` plugin in `postcss.config.js`. Use `@tailwindcss/postcss` or the Vite plugin.
 * **Animation:** **Motion** (the library formerly known as Framer Motion). Import from `motion/react` (`import { motion } from "motion/react"`). The `framer-motion` package still works as a legacy alias - prefer `motion/react` in new code.
 * **Fonts:** Always use `next/font` (Next.js) or self-host with `@font-face` + `font-display: swap`. Never link Google Fonts via `<link>` in production.
+* **Type scale:** Default to `clamp(min, vw, max)` for every font size rather than fixed breakpoint classes (`text-4xl md:text-6xl`) — this is what makes type scale smoothly across viewports instead of jumping at breakpoints. Concrete scale + verbatim recipe: `silk-design`'s `assets/foundation.css` and `references/design-system.md`. Fixed Tailwind breakpoint classes are still acceptable for one-off elements; the page's core type scale should be fluid.
+* **Smooth scroll:** Wrap the app root in Lenis (`silk-design`'s non-negotiable #1) rather than CSS `scroll-behavior` — see `silk-design SKILL.md` for the drop-in `<ReactLenis root>` setup and the scroll-bounce/scrollbar reset that goes with it.
 
 ### 3.B State
 * Local `useState` / `useReducer` for isolated UI.
@@ -214,6 +216,7 @@ LLMs default to clichés. Override these defaults proactively. Each rule has a c
 * Shadow tinting: see [`shared-references/anti-slop-tells.md`](../shared-references/anti-slop-tells.md) ("Generic flat box-shadow").
 * For `VISUAL_DENSITY > 7`: generic card containers are banned. Data metrics breathe in plain layout.
 * **SHAPE CONSISTENCY LOCK (mandatory):** Pick ONE corner-radius scale for the page and stick to it. Options: all-sharp (radius 0), all-soft (radius 12-16px), all-pill (full radius for interactive). Mixed systems are allowed only when there is a documented rule (e.g. "buttons are full-pill, cards are 16px, inputs are 8px") and that rule is followed everywhere. Round buttons in a square layout, or square cards on a pill-button page, is broken design.
+* **Reference implementation:** for the concrete token recipe — a single `--radius` custom property driving the whole scale, exposed to Tailwind via `@theme inline` — use `silk-design`'s `assets/foundation.css` (~9 CSS custom properties total) rather than inventing the token names from scratch each build.
 
 ### 4.5 Interactive UI States
 LLMs default to "static successful state only." Always implement full cycles:
@@ -361,149 +364,14 @@ These are tools, not defaults. Use them when the design read calls for them. **N
 * **GSAP Sticky-Stack Pattern (when scroll-stack is used).** A "card stack on scroll" must be a REAL sticky-stack, not a sequential reveal list. See Section 5.A below for the canonical code skeleton. Common failure: trigger fires halfway through scroll instead of pinning at viewport top. Fix: `start: "top top"` not `start: "top center"` or `"top 80%"`.
 * **GSAP Horizontal-Pan Pattern (when horizontal scroll-hijack is used).** See Section 5.B below for the canonical skeleton. Common failure: animation starts before the section is pinned, so the user sees half a slide. Same fix: `start: "top top"`, pin the wrapper, scrub the inner track.
 
-### 5.A Sticky-Stack - Canonical Skeleton
+### 5.A Canonical Motion Skeletons - use `silk-design`, do not hand-roll
 
-```tsx
-"use client";
-import { useRef, useEffect } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useReducedMotion } from "motion/react";
+Sticky-stack, horizontal-pan, and scroll-reveal-stagger skeletons used to be duplicated here. They now live in the `silk-design` skill (`references/effects.md`, `assets/ScrollReveal.tsx`, `assets/TextAnimation.tsx`) as the single source of truth — invoke it alongside this skill rather than reconstructing GSAP `ScrollTrigger` patterns from memory. `silk-design` has no aesthetic opinion (palette/layout/persona); it only supplies motion, smooth-scroll (Lenis), and token architecture, so it composes cleanly with the dials in Section 1 above.
 
-gsap.registerPlugin(ScrollTrigger);
-
-export function StickyStack({ cards }: { cards: React.ReactNode[] }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
-
-  useEffect(() => {
-    if (reduce || !ref.current) return;
-    const ctx = gsap.context(() => {
-      const cardEls = gsap.utils.toArray<HTMLElement>(".stack-card");
-      cardEls.forEach((card, i) => {
-        if (i === cardEls.length - 1) return;
-        ScrollTrigger.create({
-          trigger: card,
-          start: "top top",                              // pin at viewport top
-          endTrigger: cardEls[cardEls.length - 1],
-          end: "top top",
-          pin: true,
-          pinSpacing: false,
-        });
-        gsap.to(card, {
-          scale: 0.92,
-          opacity: 0.55,
-          ease: "none",
-          scrollTrigger: {
-            trigger: cardEls[i + 1],
-            start: "top bottom",
-            end: "top top",
-            scrub: true,
-          },
-        });
-      });
-    }, ref);
-    return () => ctx.revert();
-  }, [reduce]);
-
-  return (
-    <div ref={ref} className="relative">
-      {cards.map((card, i) => (
-        <div
-          key={i}
-          className="stack-card sticky top-0 min-h-[100dvh] flex items-center justify-center"
-        >
-          {card}
-        </div>
-      ))}
-    </div>
-  );
-}
-```
-
-Critical points: `start: "top top"`, `pin: true`, every card except the last is pinned, the scale/opacity transform is driven by the NEXT card's scroll trigger (so previous card shrinks as next one arrives).
-
-### 5.B Horizontal-Pan - Canonical Skeleton
-
-```tsx
-"use client";
-import { useRef, useEffect } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useReducedMotion } from "motion/react";
-
-gsap.registerPlugin(ScrollTrigger);
-
-export function HorizontalPan({ children }: { children: React.ReactNode }) {
-  const wrap = useRef<HTMLDivElement>(null);
-  const track = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
-
-  useEffect(() => {
-    if (reduce || !wrap.current || !track.current) return;
-    const ctx = gsap.context(() => {
-      const distance = track.current!.scrollWidth - window.innerWidth;
-      gsap.to(track.current, {
-        x: -distance,
-        ease: "none",
-        scrollTrigger: {
-          trigger: wrap.current,
-          start: "top top",                              // pin starts when section top hits viewport top
-          end: () => `+=${distance}`,                    // scroll distance = track width minus viewport
-          pin: true,
-          scrub: 1,
-          invalidateOnRefresh: true,
-        },
-      });
-    }, wrap);
-    return () => ctx.revert();
-  }, [reduce]);
-
-  return (
-    <section ref={wrap} className="relative overflow-hidden">
-      <div ref={track} className="flex h-[100dvh] items-center">
-        {children}
-      </div>
-    </section>
-  );
-}
-```
-
-Critical points: `start: "top top"`, `pin: true`, `end: "+=${distance}"` (scroll length = horizontal travel needed), `scrub: 1`. The wrapper is pinned, the inner track slides horizontally as the user scrolls vertically.
-
-### 5.C Scroll-Reveal Stagger - Canonical Skeleton (lighter alternative)
-
-For simple "items appear as they enter viewport" (no pinning), prefer Motion's `whileInView` over GSAP - lighter, no ScrollTrigger needed:
-
-```tsx
-"use client";
-import { motion, useReducedMotion } from "motion/react";
-
-export function RevealStagger({ items }: { items: string[] }) {
-  const reduce = useReducedMotion();
-  return (
-    <ul className="grid gap-6">
-      {items.map((item, i) => (
-        <motion.li
-          key={item}
-          initial={reduce ? false : { opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{
-            duration: 0.6,
-            delay: i * 0.06,
-            ease: [0.16, 1, 0.3, 1],
-          }}
-        >
-          {item}
-        </motion.li>
-      ))}
-    </ul>
-  );
-}
-```
-
-Use this for: feature lists, testimonial grids, logo walls, anything that just needs "enter on scroll." Save GSAP for actual pin/scrub work.
+- **Sticky-stack** (pin cards, next one shrinks the previous as it arrives): `silk-design references/effects.md` → "stack-to-grid" pattern. Critical points carry over unchanged: `start: "top top"` (not `"top center"` or `"top 80%"`), every card but the last is pinned, the scale/opacity transform on a card is driven by the *next* card's `ScrollTrigger`.
+- **Horizontal-pan** (pin a section, scrub-drive a horizontal track): `silk-design references/effects.md` → GSAP horizontal-pan pattern. Same failure mode to guard against: animation must not start before the section is pinned, or the user sees a half-slide — `start: "top top"` on the pinned wrapper, `scrub` on the inner track.
+- **Scroll-reveal stagger** (lightweight "enter on scroll," no pinning): use `silk-design`'s `assets/ScrollReveal.tsx` (blocks) / `assets/TextAnimation.tsx` (word-stagger headings) directly, or its "one reveal config used everywhere" default (`whileInView`, `viewport: { once: true, margin: "-20%" }`, `duration: 0.6`, `ease: "easeOut"`) for anything silk's drop-in component doesn't already cover. Reserve GSAP for actual pin/scrub work, same as before.
+- **Foundation rules to apply regardless of which of the above you use:** silk-design's four non-negotiables — Lenis smooth scroll at the root, kill scroll bounce + thin scrollbar, its 9-token `--radius`-driven color architecture, and `clamp()` fluid type. See Section 4.1/4.4 below for how the type and shape rules here already align with it.
 
 ### 5.D Forbidden Animation Patterns
 
