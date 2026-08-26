@@ -131,6 +131,8 @@ Unless the design read picks a real design system (Section 2.A), these are the d
   * For v4: do NOT use `tailwindcss` plugin in `postcss.config.js`. Use `@tailwindcss/postcss` or the Vite plugin.
 * **Animation:** **Motion** (the library formerly known as Framer Motion). Import from `motion/react` (`import { motion } from "motion/react"`). The `framer-motion` package still works as a legacy alias - prefer `motion/react` in new code.
 * **Fonts:** Always use `next/font` (Next.js) or self-host with `@font-face` + `font-display: swap`. Never link Google Fonts via `<link>` in production.
+* **Type scale:** Default to `clamp(min, vw, max)` for every font size rather than fixed breakpoint classes (`text-4xl md:text-6xl`) — this is what makes type scale smoothly across viewports instead of jumping at breakpoints. Concrete scale + verbatim recipe: `silk-design`'s `assets/foundation.css` and `references/design-system.md`. Fixed Tailwind breakpoint classes are still acceptable for one-off elements; the page's core type scale should be fluid.
+* **Smooth scroll:** Wrap the app root in Lenis (`silk-design`'s non-negotiable #1) rather than CSS `scroll-behavior` — see `silk-design SKILL.md` for the drop-in `<ReactLenis root>` setup and the scroll-bounce/scrollbar reset that goes with it.
 
 ### 3.B State
 * Local `useState` / `useReducer` for isolated UI.
@@ -214,6 +216,7 @@ LLMs default to clichés. Override these defaults proactively. Each rule has a c
 * Shadow tinting: see [`shared-references/anti-slop-tells.md`](../shared-references/anti-slop-tells.md) ("Generic flat box-shadow").
 * For `VISUAL_DENSITY > 7`: generic card containers are banned. Data metrics breathe in plain layout.
 * **SHAPE CONSISTENCY LOCK (mandatory):** Pick ONE corner-radius scale for the page and stick to it. Options: all-sharp (radius 0), all-soft (radius 12-16px), all-pill (full radius for interactive). Mixed systems are allowed only when there is a documented rule (e.g. "buttons are full-pill, cards are 16px, inputs are 8px") and that rule is followed everywhere. Round buttons in a square layout, or square cards on a pill-button page, is broken design.
+* **Reference implementation:** for the concrete token recipe — a single `--radius` custom property driving the whole scale, exposed to Tailwind via `@theme inline` — use `silk-design`'s `assets/foundation.css` (~9 CSS custom properties total) rather than inventing the token names from scratch each build.
 
 ### 4.5 Interactive UI States
 LLMs default to "static successful state only." Always implement full cycles:
@@ -421,7 +424,7 @@ export function StickyStack({ cards }: { cards: React.ReactNode[] }) {
 }
 ```
 
-Critical points: `start: "top top"`, `pin: true`, every card except the last is pinned, the scale/opacity transform is driven by the NEXT card's scroll trigger (so previous card shrinks as next one arrives).
+Critical points: `start: "top top"`, `pin: true`, every card except the last is pinned, the scale/opacity transform is driven by the NEXT card's scroll trigger (so previous card shrinks as next one arrives). `silk-design references/effects.md` has a related but different technique ("Pinned + scrubbed card stack") that uses a single `sticky` wrapper with per-card scrub instead of per-card `ScrollTrigger.create({ pin: true })` — worth knowing as an alternative, but not a drop-in replacement for this skeleton.
 
 ### 5.B Horizontal-Pan - Canonical Skeleton
 
@@ -469,41 +472,21 @@ export function HorizontalPan({ children }: { children: React.ReactNode }) {
 }
 ```
 
-Critical points: `start: "top top"`, `pin: true`, `end: "+=${distance}"` (scroll length = horizontal travel needed), `scrub: 1`. The wrapper is pinned, the inner track slides horizontally as the user scrolls vertically.
+Critical points: `start: "top top"`, `pin: true`, `end: "+=${distance}"` (scroll length = horizontal travel needed), `scrub: 1`. The wrapper is pinned, the inner track slides horizontally as the user scrolls vertically. `silk-design` has no equivalent recipe — its only horizontal-motion content is an infinite CSS marquee (`references/effects.md`, `assets/animations.css`), a different technique (no pinning, no scroll-scrubbing) — this skeleton has no home to defer to and stays here.
 
-### 5.C Scroll-Reveal Stagger - Canonical Skeleton (lighter alternative)
+### 5.C Scroll-Reveal Stagger - use `silk-design`, do not hand-roll
 
-For simple "items appear as they enter viewport" (no pinning), prefer Motion's `whileInView` over GSAP - lighter, no ScrollTrigger needed:
+For simple "items appear as they enter viewport" (no pinning), prefer Motion's `whileInView` over GSAP — lighter, no ScrollTrigger needed. `silk-design`'s drop-in components cover this directly, verified against `assets/ScrollReveal.tsx` (blocks) and `assets/TextAnimation.tsx` (word-stagger headings): use those, or its "one reveal config used everywhere" default —
 
 ```tsx
-"use client";
-import { motion, useReducedMotion } from "motion/react";
-
-export function RevealStagger({ items }: { items: string[] }) {
-  const reduce = useReducedMotion();
-  return (
-    <ul className="grid gap-6">
-      {items.map((item, i) => (
-        <motion.li
-          key={item}
-          initial={reduce ? false : { opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{
-            duration: 0.6,
-            delay: i * 0.06,
-            ease: [0.16, 1, 0.3, 1],
-          }}
-        >
-          {item}
-        </motion.li>
-      ))}
-    </ul>
-  );
-}
+initial="hidden" whileInView="visible"
+viewport={{ once: true, margin: "-20%" }}
+transition={{ duration: 0.6, ease: "easeOut" }}
 ```
 
-Use this for: feature lists, testimonial grids, logo walls, anything that just needs "enter on scroll." Save GSAP for actual pin/scrub work.
+— for anything the drop-in components don't already cover (feature lists, testimonial grids, logo walls, anything that just needs "enter on scroll"). Save GSAP (5.A/5.B above) for actual pin/scrub work.
+
+**Foundation rules to apply regardless of which of 5.A/5.B/5.C you use:** silk-design's four non-negotiables — Lenis smooth scroll at the root, kill scroll bounce + thin scrollbar, its 9-token `--radius`-driven color architecture, and `clamp()` fluid type. See Section 4.1/4.4 below.
 
 ### 5.D Forbidden Animation Patterns
 
