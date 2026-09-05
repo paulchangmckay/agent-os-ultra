@@ -47,14 +47,14 @@
 
 ## 2a. Editorial Stylebooks (agent-stylebooks)
 
-Plugin `agent-stylebooks@agent-stylebooks` (16 skills, installed 2026-09-05, spec: `docs/superpowers/specs/2026-09-05-agent-stylebooks-integration-design.md`). Each skill is a genre-specific editorial system (e.g. `$google-developer-docs`, `$govuk`, `$sec-plain-english`) that governs structure and ordering for a written deliverable — never voice, never the plain-language floor.
+Plugin `agent-stylebooks@agent-stylebooks` (16 skills, installed 2026-09-05, spec: `docs/superpowers/specs/2026-09-05-agent-stylebooks-integration-design.md`). Each skill is a genre-specific editorial system (e.g. `$google-developer-docs`, `$govuk`, `$sec-plain-english`) that governs structure and ordering for a written deliverable — never voice, never the plain-language floor. (`$name` is the upstream repo's own shorthand notation; the actual addressable skill id is `agent-stylebooks:<name>` — though these auto-fire by genre match rather than by explicit invocation, so this rarely matters in practice.)
 
-**Three-layer precedence (highest wins):**
+**Three-layer precedence: iso-24495 floor > brand voice > stylebook structure (highest wins):**
 
 | Layer | Owner | Governs | Fires |
 |---|---|---|---|
-| Plain-language floor | `iso-24495-1` (+ `iso-24495-3` for technical writing) | Sentence-length ceiling, paragraph limits, active voice | Always — every reply and every document |
-| Voice | `brand` (HARD-GATE) | Word choice, tone, formality | Always, before any output is created |
+| Plain-language floor | `iso-24495-1` (+ `iso-24495-3` for technical writing) | Sentence-length ceiling, paragraph limits, active voice, baseline scannability (a stylebook may reorder within this floor, never below it) | Always — every reply and every document |
+| Voice | `brand` (HARD-GATE) | Word choice, tone, formality (writing dimensions only — see §2 for `brand`'s full visual/palette/typography scope) | Always, before any output is created |
 | Genre structure | agent-stylebooks (auto-detected) | What to lead with, section/procedure ordering, genre terminology | Per matching deliverable only — never for conversational replies |
 
 A stylebook never widens a sentence past the iso-24495 ceiling and never shifts tone away from brand voice (no per-stylebook exceptions — confirmed during grilling for `$mailchimp-content`, whose own voice is "plainspoken, empathetic, lightly playful": it still only contributes structure, tone stays formal brand voice).
@@ -66,7 +66,7 @@ A stylebook never widens a sentence past the iso-24495 ceiling and never shifts 
 | API or setup tutorial, how-to guide, onboarding instructions | `$google-developer-docs` |
 | Public-service eligibility page, decision guide, application instructions (no US-federal signal) | `$govuk` |
 | Engineering or product docs, internal documentation, feature guide (GitLab-hosted signal) | `$gitlab-docs` |
-| Product workflow, step-by-step guide, troubleshooting article | `$github-docs` |
+| Product workflow, step-by-step guide, troubleshooting article (GitHub-hosted signal) | `$github-docs` |
 | Web API explanation, technical reference, learning article | `$mdn-web-docs` |
 | Infrastructure procedure, operations runbook, deployment guide (Kubernetes signal) | `$kubernetes-docs` |
 | Health or patient content, explainer, care instructions | `$nhs-health-content` |
@@ -80,7 +80,7 @@ A stylebook never widens a sentence past the iso-24495 ceiling and never shifts 
 | US federal digital-government page, form, notice, transactional message (explicit US-federal signal) | `$18f-content` |
 | Enterprise Linux/OpenShift administration, installation, configuration, troubleshooting (Red Hat/OpenShift signal) | `$red-hat-docs` |
 
-**Tiebreak rule:** 8 of the 16 stylebooks (`$google-developer-docs`, `$gitlab-docs`, `$github-docs`, `$kubernetes-docs`, `$red-hat-docs`, `$mdn-web-docs`, `$w3c-technical-reports`, `$nasa-technical-writing`) all plausibly match generic "technical documentation," and `$18f-content`/`$govuk` both match generic "public-service content." Resolution: fire an org-named stylebook only on a concrete platform/geography signal (content is actually about Kubernetes, actually US-federal, etc.); with no signal at all, default to the family anchor (`$google-developer-docs` for generic technical writing, `$govuk` for generic public-service writing) rather than guessing among near-ties or firing none. This applies to any two-or-more-way tie in the table above, not only these two clusters.
+**Tiebreak rule:** 8 of the 16 stylebooks (`$google-developer-docs`, `$gitlab-docs`, `$github-docs`, `$kubernetes-docs`, `$red-hat-docs`, `$mdn-web-docs`, `$w3c-technical-reports`, `$nasa-technical-writing`) all plausibly match generic "technical documentation," and `$18f-content`/`$govuk` both match generic "public-service content." Resolution: fire an org-named stylebook only on a concrete platform/geography signal (content is actually about Kubernetes, actually about GitHub/GitLab, actually US-federal, etc.); with no signal at all, default to the family anchor (`$google-developer-docs` for generic technical writing, `$govuk` for generic public-service writing) rather than guessing among near-ties or firing none. This applies to any two-or-more-way tie in the table above, not only these two clusters.
 
 **Scope boundary:** stylebooks fire only when creating/editing an actual saved document, docs page, or content file — never for a plain conversational reply, even a documentation-shaped one (e.g. explaining an API inline in chat). Conversational replies stay governed solely by the always-on `iso-24495-1` output style.
 
