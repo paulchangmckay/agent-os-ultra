@@ -1,7 +1,7 @@
 # Agent Stylebooks Integration — Design Spec
 
 Date: 2026-09-05
-Status: Approved (pending grilling pass)
+Status: Approved, grilled
 
 ## Purpose
 
@@ -23,12 +23,12 @@ Match the existing third-party skill-pack convention already used for `superpowe
 
 ```sh
 claude plugin marketplace add Neeeophytee/agent-stylebooks
-claude plugin enable agent-stylebooks@<plugin-name>
+claude plugin enable agent-stylebooks@agent-stylebooks
 ```
 
 This registers the marketplace under `plugins/marketplaces/agent-stylebooks` and adds the plugin flag to `settings.json`'s `enabledPlugins` map — the same tracked state as every other plugin-installed capability in this environment. No manual file copying, no separate `npx`-based tool, no `.claude/skills/` clutter.
 
-The exact `<plugin-name>` depends on how the repo's `.claude-plugin/plugin.json` names itself — confirmed during the implementation plan, not guessed here.
+Verified directly against the repo (grilling pass, 2026-09-05): `.claude-plugin/marketplace.json` names the marketplace `agent-stylebooks` and lists a single bundled plugin also named `agent-stylebooks` (source `./`), so the enable command above is exact, not a placeholder. `.claude-plugin/plugin.json` confirms 16 skills are bundled — 3 more than the 13 named in the README's routing table: `18f-content`, `mailchimp-content`, and `red-hat-docs`. All three are folded into the routing and tiebreak rules below.
 
 ## Layering rule (resolves overlap with existing skills)
 
@@ -63,17 +63,37 @@ Confirmed with the user (overriding the initial recommendation for explicit-only
 | Engineering or test report, research report, findings summary | `$nasa-technical-writing` |
 | Product help or UX copy, support article, interface guidance | `$microsoft-writing-style` |
 | Interface labels or alerts, microcopy, onboarding flow | `$apple-interface-writing` |
-| (Remaining catalog entries beyond these 13) | Per `CATALOG.md`, confirmed during implementation |
+| Customer education, campaign copy, onboarding email, newsletter | `$mailchimp-content` (structure only — see Voice precedence) |
+| US federal digital-government page, form, notice, transactional message | `$18f-content` (only when a US-federal signal is present — see Tiebreak rule) |
+| Enterprise Linux/OpenShift administration, installation, configuration, troubleshooting | `$red-hat-docs` (only when a Red Hat/OpenShift platform signal is present — see Tiebreak rule) |
 
-Auto-detection only selects a stylebook when the deliverable's genre clearly matches a row. Ambiguous or mixed-genre content gets no stylebook rather than a guessed one — silence beats a wrong guess here, since a wrong genre match would apply the wrong structural convention.
+Auto-detection only selects a stylebook when the deliverable's genre clearly matches a row. Ambiguous or mixed-genre content with no tiebreak resolution gets no stylebook rather than a guessed one — silence beats a wrong guess, since a wrong genre match would apply the wrong structural convention.
+
+### Tiebreak rule (added during grilling)
+
+Grilling surfaced a gap the routing table alone doesn't resolve: 8 of the 16 stylebooks — `$google-developer-docs`, `$gitlab-docs`, `$github-docs`, `$kubernetes-docs`, `$red-hat-docs`, `$mdn-web-docs`, `$w3c-technical-reports`, `$nasa-technical-writing` — all plausibly match generic "technical documentation," and their own catalog descriptions overlap (e.g. GitLab: "administration, contributor, and engineering documentation"; Red Hat: "administration, installation, configuration, troubleshooting"; GitHub: "developer workflows, product help, troubleshooting"). The same pattern recurs for `$18f-content` vs `$govuk` (both match generic "public-service content").
+
+Resolution, confirmed with the user:
+
+1. **Concrete platform/geography signal first.** Fire an org-named stylebook only when the deliverable is actually about that platform or jurisdiction — `$kubernetes-docs` only for content actually about Kubernetes, `$red-hat-docs` only for content actually about Red Hat/OpenShift, `$gitlab-docs` only when the work lives in or documents a GitLab-hosted project, `$18f-content` only when the content is explicitly US-federal.
+2. **No platform/geography signal at all → default to the family's anchor stylebook**, rather than guessing among near-ties or firing none:
+   - Generic technical documentation with no named platform → `$google-developer-docs` (least platform-specific of the 8, and the one already anchoring the original routing table).
+   - Generic public-service content with no US/UK signal → `$govuk` (already the routing-table anchor; `$18f-content` only fires on an explicit US-federal signal).
+3. This tiebreak applies wherever two or more stylebooks in this spec's routing table would otherwise match the same content with no distinguishing signal — not just the two clusters named above.
 
 ## Voice precedence (confirmed with user)
 
-Brand voice always wins. When a stylebook's native voice example (e.g., $apple-interface-writing's casual microcopy) would conflict with the user's formal Personal Brand Guide voice, brand voice governs word choice and tone; the stylebook still governs structure (what to lead with, ordering) for that deliverable. This keeps output voice consistent across every deliverable regardless of which stylebook fired.
+Brand voice always wins, with no per-stylebook exceptions. When a stylebook's native voice example (e.g., $apple-interface-writing's casual microcopy, or $mailchimp-content's "plainspoken, empathetic, lightly playful" content voice) would conflict with the user's formal Personal Brand Guide voice, brand voice governs word choice and tone; the stylebook still governs structure (what to lead with, ordering, genre convention) for that deliverable.
+
+Grilling explicitly tested whether voice-defined stylebooks like `$mailchimp-content` — whose entire purpose is a specific tone — should get an exception. Confirmed: no exception. One precedence rule for all 16 stylebooks keeps the system predictable; a growing exception list would be its own source of workflow confusion. `$mailchimp-content` still contributes its email/campaign structural conventions; tone stays formal brand voice regardless.
 
 ## Scope: install all 16
 
-The layering rule (previous section) makes every stylebook, including the 5 that share genre territory with `iso-24495-3`, safe to install without redundancy. No curation needed.
+The layering rule and tiebreak rule (previous sections) make every stylebook — including the 5 that share genre territory with `iso-24495-3` and the 3 that overlap within the pack itself — safe to install without redundancy or guessed selection. No curation needed.
+
+## Reply vs. deliverable scope (confirmed during grilling)
+
+Stylebooks fire only when creating or editing an actual saved document, docs page, or content file — never for a plain conversational reply, even one that is substantively documentation-shaped (e.g., explaining an API inline in chat). Conversational replies stay governed solely by the always-on `iso-24495-1` output style. This keeps a firm, unambiguous line between "governs this chat reply" and "governs this deliverable" — the exact ambiguity the user wanted to avoid.
 
 ## Storage location
 
@@ -82,7 +102,7 @@ Global `~/.claude`, plugin-installed (per Install mechanism above) — matching 
 ## Documentation updates
 
 1. **CLAUDE.md Section 2 (Process Layer table):** add a row routing genre-matched writing tasks to agent-stylebooks, referencing the layering rule.
-2. **New CLAUDE.md subsection** (adjacent to Section 2, e.g. "2a. Editorial Stylebooks"): documents the three-layer precedence table and the auto-detect routing table above, so future sessions apply this without re-deriving it.
+2. **New CLAUDE.md subsection** (adjacent to Section 2, e.g. "2a. Editorial Stylebooks"): documents the three-layer precedence table, the auto-detect routing table, the tiebreak rule, the no-exception voice precedence, and the reply-vs-deliverable scope boundary above, so future sessions apply all of this without re-deriving it.
 3. No change needed to the `brand` skill or `iso-24495-*` skill files themselves — the layering rule is additive, not a modification of their existing behavior.
 
 ## Out of scope
