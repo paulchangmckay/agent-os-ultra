@@ -2,18 +2,18 @@
 
 ## Problem
 
-`timescale/pg-aiguide` ships 9 opinionated PostgreSQL/TimescaleDB/PostGIS skills (schema design, indexing, hypertables, pgvector, hybrid search, safe migrations). None are installed. Installing the skill alone without wiring it into the existing routing conventions (`CLAUDE.md` §2 table, `claude-infra-reference.md`) means it sits unused — the same failure mode this repo has already hit with orphaned installs.
+`timescale/pg-aiguide` ships a family of opinionated PostgreSQL/TimescaleDB/PostGIS skills (an entry point plus several topic-specific ones — schema design, indexing, hypertables, pgvector, hybrid search, safe migrations). None are installed. Installing the skill alone without wiring it into the existing routing conventions (`CLAUDE.md` §2 table, `claude-infra-reference.md`) means it sits unused — the same failure mode this repo has already hit with orphaned installs.
 
 ## Decision
 
-Install only the `postgres` entry-point skill (not all 9 individually). It internally cross-references the other 8 via bundled `references/` files, so coverage is equivalent with one trigger point to route on.
+Install only the `postgres` entry-point skill (not the others individually). It internally cross-references its sibling skills via bundled `references/` files, so coverage is equivalent with one trigger point to route on.
 
 ## Changes
 
 1. **Install:** `npx skills add timescale/pg-aiguide --skill postgres` → `~/.claude/skills/postgres/` (real copy, not a symlink — same convention as the mattpocock/taste-skill installs).
 
 2. **`CLAUDE.md` §2** — new row in the bottom "topic-triggered reference" cluster (rows 29–36: `senior-engineering-partner` AUDIT, ad-hoc `grilling`, `codebase-design`, `domain-modeling`, `/handoff`, `/teach`, `agent-team-architect`, `context-tools`), placed immediately after the `domain-modeling` row — NOT in the pipeline cluster (rows 13–28), and NOT with the composition rule spelled out inline:
-   > Postgres/TimescaleDB/PostGIS schema, indexing, or migration work → `postgres` skill (external, `timescale/pg-aiguide`) — see `claude-infra-reference`
+   > Postgres/TimescaleDB/PostGIS schema, indexing, search, or migration work → `postgres` skill (external, `timescale/pg-aiguide`) — see `claude-infra-reference`
 
 3. **`claude-infra-reference.md`** — new "External Skill Integration (pg-aiguide / timescale)" subsection, following the existing pattern used for `make-interfaces-feel-better` and `silk-design`:
    - Install command and what it covers
@@ -23,7 +23,7 @@ Install only the `postgres` entry-point skill (not all 9 individually). It inter
 
 ## Explicitly out of scope
 
-- Installing the other 8 skills individually.
+- Installing the sibling skills individually.
 - Installing the hosted MCP server or Claude Code plugin bundle.
 
 ## Process
