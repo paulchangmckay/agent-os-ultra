@@ -11,6 +11,7 @@
 | When | Invoke |
 |------|--------|
 | Before creating any output (PDF, slides, doc, PRD, image, email, diagram) | `brand` (HARD-GATE: brand specs before creating; exempt: `teach` skill's personal lesson HTML output — not a branded deliverable) |
+| Writing a genre-specific deliverable (API docs, public-service page, runbook, investor disclosure, UI microcopy, campaign email, etc.) | `agent-stylebooks` (auto-detected per genre) — layers *under* `brand` voice and the `iso-24495` plain-language floor, never over them; see §2a for the full precedence, routing, and tiebreak rules. Deliverables only — never applied to a plain conversational reply. |
 | Writing or restyling frontend UI (landing page, portfolio, dashboard, any web/app visual design) | Dispatch `Agent(subagent_type: "frontend-design:frontend-design")` — but only for work clearing the threshold (a build, redesign, multi-file change, or picking an aesthetic direction; a trivial single-property tweak on an already-open file is handled directly, no dispatch), and only after confirming with the user first (this subagent does not auto-dispatch, unlike `Explore`) |
 | After a frontend UI build/edit is otherwise done — animations, hover/focus/active states, icons, shadows, borders, hit areas, any interface-polish detail | `make-interfaces-feel-better` (quick/full review modes) — a detail-level review pass, not an aesthetic-direction skill; layer it on top of whichever taste-skill variant (or hand-written UI) produced the work, never in place of one — see `claude-infra-reference` |
 | Before any feature work or new task | `brainstorming` (HARD-GATE: no code until design approved) |
@@ -43,6 +44,45 @@
 | **2 — Production** | Real customer data, multi-tenant, public internet | Full strict posture — all merge-blocking gates active |
 
 **Promotion triggers** (escalate tier immediately): real customer data, multi-tenant isolation needed, regulated data (PII/GDPR), second contributor, public internet exposure.
+
+## 2a. Editorial Stylebooks (agent-stylebooks)
+
+Plugin `agent-stylebooks@agent-stylebooks` (16 skills, installed 2026-09-05, spec: `docs/superpowers/specs/2026-09-05-agent-stylebooks-integration-design.md`). Each skill is a genre-specific editorial system (e.g. `$google-developer-docs`, `$govuk`, `$sec-plain-english`) that governs structure and ordering for a written deliverable — never voice, never the plain-language floor. (`$name` is the upstream repo's own shorthand notation; the actual addressable skill id is `agent-stylebooks:<name>` — though these auto-fire by genre match rather than by explicit invocation, so this rarely matters in practice.)
+
+**Three-layer precedence: iso-24495 floor > brand voice > stylebook structure (highest wins):**
+
+| Layer | Owner | Governs | Fires |
+|---|---|---|---|
+| Plain-language floor | `iso-24495-1` (+ `iso-24495-3` for technical writing) | Sentence-length ceiling, paragraph limits, active voice, baseline scannability (a stylebook may reorder within this floor, never below it) | Always — every reply and every document |
+| Voice | `brand` (HARD-GATE) | Word choice, tone, formality (writing dimensions only — see §2 for `brand`'s full visual/palette/typography scope) | Always, before any output is created |
+| Genre structure | agent-stylebooks (auto-detected) | What to lead with, section/procedure ordering, genre terminology | Per matching deliverable only — never for conversational replies |
+
+A stylebook never widens a sentence past the iso-24495 ceiling and never shifts tone away from brand voice (no per-stylebook exceptions — confirmed during grilling for `$mailchimp-content`, whose own voice is "plainspoken, empathetic, lightly playful": it still only contributes structure, tone stays formal brand voice).
+
+**Auto-detect routing table:**
+
+| Genre signal | Stylebook |
+|---|---|
+| API or setup tutorial, how-to guide, onboarding instructions | `$google-developer-docs` |
+| Public-service eligibility page, decision guide, application instructions (no US-federal signal) | `$govuk` |
+| Engineering or product docs, internal documentation, feature guide (GitLab-hosted signal) | `$gitlab-docs` |
+| Product workflow, step-by-step guide, troubleshooting article (GitHub-hosted signal) | `$github-docs` |
+| Web API explanation, technical reference, learning article | `$mdn-web-docs` |
+| Infrastructure procedure, operations runbook, deployment guide (Kubernetes signal) | `$kubernetes-docs` |
+| Health or patient content, explainer, care instructions | `$nhs-health-content` |
+| Public-health message, safety advisory, awareness campaign | `$cdc-clear-communication` |
+| Investor disclosure, business report, risk explanation | `$sec-plain-english` |
+| Technical specification, standards document, requirements definition | `$w3c-technical-reports` |
+| Engineering or test report, research report, findings summary | `$nasa-technical-writing` |
+| Product help or UX copy, support article, interface guidance | `$microsoft-writing-style` |
+| Interface labels or alerts, microcopy, onboarding flow | `$apple-interface-writing` |
+| Customer education, campaign copy, onboarding email, newsletter | `$mailchimp-content` (structure only) |
+| US federal digital-government page, form, notice, transactional message (explicit US-federal signal) | `$18f-content` |
+| Enterprise Linux/OpenShift administration, installation, configuration, troubleshooting (Red Hat/OpenShift signal) | `$red-hat-docs` |
+
+**Tiebreak rule:** 8 of the 16 stylebooks (`$google-developer-docs`, `$gitlab-docs`, `$github-docs`, `$kubernetes-docs`, `$red-hat-docs`, `$mdn-web-docs`, `$w3c-technical-reports`, `$nasa-technical-writing`) all plausibly match generic "technical documentation," and `$18f-content`/`$govuk` both match generic "public-service content." Resolution: fire an org-named stylebook only on a concrete platform/geography signal (content is actually about Kubernetes, actually about GitHub/GitLab, actually US-federal, etc.); with no signal at all, default to the family anchor (`$google-developer-docs` for generic technical writing, `$govuk` for generic public-service writing) rather than guessing among near-ties or firing none. This applies to any two-or-more-way tie in the table above, not only these two clusters.
+
+**Scope boundary:** stylebooks fire only when creating/editing an actual saved document, docs page, or content file — never for a plain conversational reply, even a documentation-shaped one (e.g. explaining an API inline in chat). Conversational replies stay governed solely by the always-on `iso-24495-1` output style.
 
 ## 3. Infrastructure Layer (OpenWolf Integration)
 - **GitHub repo renamed:** `paulchangmckay/brain` → `paulchangmckay/agent-os-ultra` (discovered 2026-08-19 via a `git push` redirect notice). Old remote URL still works via GitHub's redirect, but new PR/issue links use the new name — don't be confused if a URL doesn't match `.git/config`'s `origin` value.
