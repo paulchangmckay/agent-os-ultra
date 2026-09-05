@@ -75,7 +75,7 @@ Grilling surfaced a gap the routing table alone doesn't resolve: 8 of the 16 sty
 
 Resolution, confirmed with the user:
 
-1. **Concrete platform/geography signal first.** Fire an org-named stylebook only when the deliverable is actually about that platform or jurisdiction — `$kubernetes-docs` only for content actually about Kubernetes, `$red-hat-docs` only for content actually about Red Hat/OpenShift, `$gitlab-docs` only when the work lives in or documents a GitLab-hosted project, `$18f-content` only when the content is explicitly US-federal.
+1. **Concrete platform/geography signal first.** Fire an org-named stylebook only when the deliverable is actually about that platform or jurisdiction — `$kubernetes-docs` only for content actually about Kubernetes, `$red-hat-docs` only for content actually about Red Hat/OpenShift, `$gitlab-docs` only when the work lives in or documents a GitLab-hosted project, `$github-docs` only when the work lives in or documents a GitHub-hosted project, `$18f-content` only when the content is explicitly US-federal.
 2. **No platform/geography signal at all → default to the family's anchor stylebook**, rather than guessing among near-ties or firing none:
    - Generic technical documentation with no named platform → `$google-developer-docs` (least platform-specific of the 8, and the one already anchoring the original routing table).
    - Generic public-service content with no US/UK signal → `$govuk` (already the routing-table anchor; `$18f-content` only fires on an explicit US-federal signal).
