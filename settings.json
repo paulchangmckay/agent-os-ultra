@@ -15,8 +15,6 @@
       "Bash(git branch:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(openwolf status)",
-      "Bash(openwolf scan:*)",
       "Bash(openwolf:*)",
       "Bash(pm2 list)",
       "Bash(npm test:*)",
@@ -67,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/hooks/openwolf-cron-gate.js memory-consolidation \"${CLAUDE_CWD:-.}\"",
+            "command": "node $CLAUDE_PROJECT_DIR/hooks/openwolf-cron-gate.js memory-consolidation \"$CLAUDE_PROJECT_DIR\"",
             "timeout": 130
           }
         ]
@@ -76,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/hooks/prune-token-ledger.js \"${CLAUDE_CWD:-.}\"",
+            "command": "node $CLAUDE_PROJECT_DIR/hooks/prune-token-ledger.js \"$CLAUDE_PROJECT_DIR\"",
             "timeout": 30
           }
         ]
@@ -102,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/hooks/session-start-reset-read-state.js \"${CLAUDE_CWD:-.}\""
+            "command": "node $CLAUDE_PROJECT_DIR/hooks/session-start-reset-read-state.js \"$CLAUDE_PROJECT_DIR\""
           }
         ]
       }
@@ -249,7 +247,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"${CLAUDE_CWD:-.}\" && [ -f .wolf/anatomy.md ] && openwolf scan --check 2>/dev/null || true"
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && [ -f .wolf/anatomy.md ] && openwolf scan --check 2>/dev/null || true"
           }
         ]
       },
@@ -299,12 +297,12 @@
           },
           {
             "type": "command",
-            "command": "REPO=$(git -C \"${CLAUDE_CWD:-$HOME/.claude}\" rev-parse --show-toplevel 2>/dev/null); if [ -n \"$REPO\" ]; then STALE=$(git -C \"$REPO\" worktree list 2>/dev/null | tail -n +2); if [ -n \"$STALE\" ]; then echo \"⚠️  Active worktrees — run cleanup if merged:\\n$STALE\\n  Fix: git -C $REPO worktree remove <path> && git -C $REPO branch -d <branch>\"; fi; fi",
+            "command": "REPO=$(git -C \"$CLAUDE_PROJECT_DIR\" rev-parse --show-toplevel 2>/dev/null); if [ -n \"$REPO\" ]; then STALE=$(git -C \"$REPO\" worktree list 2>/dev/null | tail -n +2); if [ -n \"$STALE\" ]; then echo \"⚠️  Active worktrees — run cleanup if merged:\\n$STALE\\n  Fix: git -C $REPO worktree remove <path> && git -C $REPO branch -d <branch>\"; fi; fi",
             "async": true
           },
           {
             "type": "command",
-            "command": "REPO=$(git -C \"${CLAUDE_CWD:-$HOME/.claude}\" rev-parse --show-toplevel 2>/dev/null); if [ -n \"$REPO\" ]; then STATE=\"$REPO/.wolf/_last-seen-head\"; CURRENT=$(git -C \"$REPO\" rev-parse HEAD 2>/dev/null); if [ -n \"$CURRENT\" ]; then if [ -f \"$STATE\" ]; then PREV=$(cat \"$STATE\"); if [ -n \"$PREV\" ] && [ \"$PREV\" != \"$CURRENT\" ]; then TOUCHED=$(git -C \"$REPO\" diff --name-only \"$PREV\" \"$CURRENT\" -- hooks/ settings.json 2>/dev/null); if [ -n \"$TOUCHED\" ]; then echo \"restart-needed: hooks/ or settings.json changed since last check —\\n$TOUCHED\"; fi; fi; fi; mkdir -p \"$REPO/.wolf\"; echo \"$CURRENT\" > \"$STATE\"; fi; fi",
+            "command": "REPO=$(git -C \"$CLAUDE_PROJECT_DIR\" rev-parse --show-toplevel 2>/dev/null); if [ -n \"$REPO\" ]; then STATE=\"$REPO/.wolf/_last-seen-head\"; CURRENT=$(git -C \"$REPO\" rev-parse HEAD 2>/dev/null); if [ -n \"$CURRENT\" ]; then if [ -f \"$STATE\" ]; then PREV=$(cat \"$STATE\"); if [ -n \"$PREV\" ] && [ \"$PREV\" != \"$CURRENT\" ]; then TOUCHED=$(git -C \"$REPO\" diff --name-only \"$PREV\" \"$CURRENT\" -- hooks/ settings.json 2>/dev/null); if [ -n \"$TOUCHED\" ]; then echo \"restart-needed: hooks/ or settings.json changed since last check —\\n$TOUCHED\"; fi; fi; fi; mkdir -p \"$REPO/.wolf\"; echo \"$CURRENT\" > \"$STATE\"; fi; fi",
             "async": true
           }
         ]
@@ -324,7 +322,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/hooks/openwolf-cron-gate.js cerebrum-reflection \"${CLAUDE_CWD:-.}\"",
+            "command": "node $CLAUDE_PROJECT_DIR/hooks/openwolf-cron-gate.js cerebrum-reflection \"$CLAUDE_PROJECT_DIR\"",
             "timeout": 130
           }
         ]

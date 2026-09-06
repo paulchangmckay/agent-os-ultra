@@ -24,6 +24,11 @@ node_modules/
 *.log
 *.lock
 
+# Browser-automation and telemetry scratch (regenerated, never source)
+.playwright-mcp/
+telemetry/
+/verify-*.png
+
 # Claude runtime state files
 .last-cleanup
 .last-update-result.json
