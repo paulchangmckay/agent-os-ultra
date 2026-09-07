@@ -1,7 +1,26 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-08-17T02:24:52.555Z
-> Files: 533 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-08-19T00:48:41.762Z
+> Files: 588 tracked | Anatomy hits: 0 | Misses: 0
+
+## ../../../private/tmp/claude-501/-Users-paulmckay--claude/9cf2a1c7-04c3-42a5-a549-9713c7efa89f/scratchpad/
+
+- `check.js` — SP: run (~489 tok)
+- `check2.js` — SP: run (~332 tok)
+- `debug-escape.sh` (~63 tok)
+- `debug-pca.sh` (~132 tok)
+- `debug-pca2.mjs` — Declares SCRIPT (~273 tok)
+- `observation2.json` (~486 tok)
+- `observation3.json` (~562 tok)
+- `old-script.sh` — PostCompact hook: re-injects OpenWolf anatomy after context compaction. (~451 tok)
+- `probe.mjs` — Declares fakeBinDir (~163 tok)
+- `probe2.mjs` — Declares SCRIPT (~310 tok)
+- `run_old.sh` (~53 tok)
+
+## ../../../tmp/pca-verify/
+
+- `run-new.mjs` — Declares result (~195 tok)
+- `run-old.mjs` — Declares result (~141 tok)
 
 ## ../Desktop/NHL Stats Project/.worktrees/feature-116-117-team-pages-top-players/.superpowers/sdd/
 
@@ -23,6 +42,10 @@
 - `TopPlayers.test.tsx` — PLAYERS (~653 tok)
 - `TopPlayers.tsx` — fetchJson (~619 tok)
 
+## ../Desktop/NHL Stats Project/.worktrees/session-reflect-2026-08-17/.wolf/
+
+- `cerebrum.md` — Cerebrum (~12543 tok)
+
 ## ./
 
 - `.DS_Store` (~2729 tok)
@@ -34,7 +57,7 @@
 - `.last-update-result.json` (~46 tok)
 - `.mcp.json` (~34 tok)
 - `.shellcheckrc` — Companion enforcement for skills/senior-engineering-partner SKILL.md: (~81 tok)
-- `CLAUDE.md` — System Instructions: Thin Harness, Fat Skills Environment (~6040 tok)
+- `CLAUDE.md` — System Instructions: Thin Harness, Fat Skills Environment (~6174 tok)
 - `eslint.config.js` — ESLint flat configuration (~365 tok)
 - `history.jsonl` (~201 tok)
 - `mcp_servers.example.json` (~65 tok)
@@ -54,6 +77,10 @@
 
 - `openwolf.md` (~435 tok)
 - `portable-repo.md` — Portable-Repo & Generated-File Hygiene (~496 tok)
+
+## .claude/worktrees/claude-md-stacked-pr-learnings/
+
+- `CLAUDE.md` — System Instructions: Thin Harness, Fat Skills Environment (~6410 tok)
 
 ## .claude/worktrees/enable-plugins-settings/
 
@@ -922,3 +949,85 @@
 ## .claude/worktrees/feature+56-adhd-caveman-hook/
 
 - `settings.json` (~3872 tok)
+
+## .claude/worktrees/feature+56-adhd-caveman-hook/.superpowers/sdd/
+
+- `task-2-report.md` — Task 2 Report: Combined SessionStart Hook Script + Tests (~1966 tok)
+
+## .claude/worktrees/feature+56-adhd-caveman-hook/.wolf/
+
+- `cerebrum.md` — Cerebrum (~2148 tok)
+- `memory.md` — Memory (~13620 tok)
+
+## .claude/worktrees/feature+56-adhd-caveman-hook/docs/superpowers/plans/
+
+- `2026-08-16-combined-adhd-caveman-hook.md` — Combined ADHD-Caveman SessionStart Hook Implementation Plan (~4592 tok)
+
+## .claude/worktrees/feature+56-adhd-caveman-hook/docs/superpowers/specs/
+
+- `2026-08-15-caveman-lexicon-hook-design.md` — Combined ADHD-Caveman SessionStart Hook — Design (~3687 tok)
+
+## .claude/worktrees/feature+56-adhd-caveman-hook/hooks/
+
+- `adhd-caveman.js` — SessionStart hook: combines i-have-adhd's structural ruleset (read live (~613 tok)
+- `adhd-caveman.test.js` — SCRIPT: withTmpConfigDir, runWithEnv (~1171 tok)
+
+## .claude/worktrees/feature+61-hook-input-dedup-bucket-b/.superpowers/sdd/
+
+- `final-review-fix-report.md` — Final-Review Fix Report — Bucket B (branch `worktree-feature+61-hook-input-dedup-bucket-b`) (~820 tok)
+- `task-1-report.md` — Task 1 Report: Create `scripts/hook-input.js` (~612 tok)
+- `task-2-report.md` — Task 2 Report: Migrate 12 hooks/*.js callers to scripts/hook-input.js (~1637 tok)
+- `task-3-report.md` — Task 3: Migrate scripts/wolf-observation-log.js — Report (~372 tok)
+- `task-4-report.md` — Task 4 Report: Create `skills/shared-references/anti-slop-tells.md` (~515 tok)
+- `task-5-report.md` — Task 5 Report: Point redesign-existing-projects/SKILL.md at the shared reference (~774 tok)
+- `task-6-report.md` — Task 6 Report: Point design-taste-frontend/SKILL.md at the shared reference (~1248 tok)
+- `task-7-report.md` — Task 7 Report: Failing test for post-compact-anatomy.sh (~1810 tok)
+- `task-8-report.md` — Task 8 Report (~1016 tok)
+- `task-9-report.md` — Task 9: Full verification pass — Report (~2170 tok)
+
+## .claude/worktrees/feature+61-hook-input-dedup-bucket-b/docs/superpowers/plans/
+
+- `2026-08-17-bucket-b-consolidation.md` — Bucket B Consolidation Implementation Plan (~9703 tok)
+
+## .claude/worktrees/feature+61-hook-input-dedup-bucket-b/hooks/
+
+- `cerebrum-write-guard-post.js` — PostToolUse hook (matcher: Edit|Write): records cerebrum.md's mtime (~436 tok)
+- `cerebrum-write-guard.js` — PreToolUse hook (matcher: Edit|Write): warns if cerebrum.md changed on (~540 tok)
+- `openwolf-cron-gate.js` — Exports runOpenwolfCron, archiveOldMemoryEntries, checkMemoryConsolidation, checkCerebrumReflection (~1943 tok)
+- `post-compact-anatomy.sh` — PostCompact hook: re-injects OpenWolf anatomy after context compaction. (~708 tok)
+- `post-compact-anatomy.test.js` — SCRIPT: run, makeFakeHome, makeFakeProjectCwd (~1670 tok)
+- `post-compact-observation.js` — PostCompact hook: deterministically records that a compaction happened, (~447 tok)
+- `post-skill-record.js` — PostToolUse hook (matcher: Skill): records each invoked skill as a (~337 tok)
+- `post-write-batch-nudge.js` — PostToolUse hook (matcher: Write|Edit|MultiEdit): nudges toward logging (~642 tok)
+- `pre-principles-injection.js` — PreToolUse hook (matcher: Write|Edit|MultiEdit): injects (~454 tok)
+- `pre-skill-gate.js` — PreToolUse hook (matcher: Skill): blocks invoking the writing-plans skill (~341 tok)
+- `prune-token-ledger.js` — Exports pruneTokenLedger (~852 tok)
+- `subagent-thin-harness.js` — SubagentStart hook: injects a short thin-harness digest into every (~505 tok)
+- `worktree-path-guard.js` — PreToolUse hook (matcher: Edit|Write): warns when an absolute file_path (~710 tok)
+- `worktree-repo-guard.js` — PreToolUse hook (matcher: EnterWorktree): blocks EnterWorktree unless the (~264 tok)
+
+## .claude/worktrees/feature+61-hook-input-dedup-bucket-b/scripts/
+
+- `hook-input.js` — Shared stdin-reading + identifier-sanitization primitives for hooks and (~227 tok)
+- `hook-input.test.js` — Declares MODULE_PATH (~575 tok)
+- `wolf-observation-log.js` — /*.js is eslint-banned from child_process. (~3179 tok)
+
+## .claude/worktrees/feature+61-hook-input-dedup-bucket-b/skills/design-taste-frontend/
+
+- `SKILL.md` — tasteskill: Anti-Slop Frontend Skill (~21784 tok)
+
+## .claude/worktrees/feature+61-hook-input-dedup-bucket-b/skills/redesign-existing-projects/
+
+- `SKILL.md` — Redesign Skill (~3410 tok)
+
+## .claude/worktrees/feature+61-hook-input-dedup-bucket-b/skills/shared-references/
+
+- `anti-slop-tells.md` — Anti-Slop Tells (Shared Reference) (~496 tok)
+
+## docs/superpowers/plans/
+
+- `2026-08-17-bucket-b-consolidation.md` — Bucket B Consolidation Implementation Plan (~9229 tok)
+
+## docs/superpowers/specs/
+
+- `2026-08-17-bucket-b-consolidation-design.md` — Bucket B Consolidation — Design (~4716 tok)

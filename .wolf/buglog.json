@@ -4493,6 +4493,22 @@
       ],
       "occurrences": 1,
       "last_seen": "2026-08-19T00:20:00.000Z"
+    },
+    {
+      "id": "bug-279",
+      "timestamp": "2026-09-05T00:00:00.000Z",
+      "error_message": "Verification script's grep -q \"\\$$s\" reports every case as MISSING even when the content is present",
+      "file": "docs/superpowers/plans/2026-09-05-agent-stylebooks-integration.md",
+      "root_cause": "Inside bash double quotes, \\$ collapses to a literal $ before grep ever receives the argument, so the pattern passed to grep is bare $name instead of an escaped-dollar-then-name literal. Mid-pattern behavior for a bare $ is inconsistent across grep implementations, and here it produced a silent false negative rather than an error, on every single case tested.",
+      "fix": "Use single-quote + concatenation to preserve the backslash: grep -q '\\$'\"$s\" file. Verified by re-running the corrected loop for all 16 required names and getting genuinely empty (passing) output, confirmed independently against a direct grep and against a code-reviewer subagent's diff read.",
+      "tags": [
+        "shell-quoting",
+        "verification-script",
+        "false-negative",
+        "plan-writing"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-09-05T00:00:00.000Z"
     }
   ]
 }
