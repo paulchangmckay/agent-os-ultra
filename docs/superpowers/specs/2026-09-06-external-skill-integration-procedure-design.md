@@ -74,7 +74,7 @@ This mirrors CLAUDE.md §2a's tiebreak shape (concrete signal first, else a name
 
 ### 3. Cross-reference in CLAUDE.md §2a
 
-Add one line near the top of §2a: "This section's routing-table-plus-tiebreak pattern follows the general convention documented in `claude-infra-reference`'s External Skill Integration Procedure."
+Add one line near the top of §2a: "This section's routing-table-plus-tiebreak pattern is a worked example of the general convention documented in `claude-infra-reference`'s External Skill Integration Procedure."
 
 ## Documentation updates (files touched)
 
