@@ -48,6 +48,8 @@
 
 ## 2a. Editorial Stylebooks (agent-stylebooks)
 
+This section's routing-table-plus-tiebreak pattern follows the general convention documented in `claude-infra-reference`'s External Skill Integration Procedure.
+
 Plugin `agent-stylebooks@agent-stylebooks` (16 skills, installed 2026-09-05, spec: `docs/superpowers/specs/2026-09-05-agent-stylebooks-integration-design.md`). Each skill is a genre-specific editorial system (e.g. `$google-developer-docs`, `$govuk`, `$sec-plain-english`) that governs structure and ordering for a written deliverable — never voice, never the plain-language floor. (`$name` is the upstream repo's own shorthand notation; the actual addressable skill id is `agent-stylebooks:<name>` — though these auto-fire by genre match rather than by explicit invocation, so this rarely matters in practice.)
 
 **Three-layer precedence: iso-24495 floor > brand voice > stylebook structure (highest wins):**
