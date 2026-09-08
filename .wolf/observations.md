@@ -259,3 +259,15 @@ DECLINED (YYYY-MM-DD) = reviewed, not pursued
 **Suggested improvement:** Authoring a test assertion is itself a claim, not just a verification tool -- it needs the same 'run the real thing and read the output' discipline as any other inherited fact, especially for negative/absence assertions (proving old code was broken, proving a character was uncovered) which are easy to get backwards. Before writing an assertion that claims 'X was broken before, Y fixes it', actually run the 'before' case against real code and confirm the failure happens for the stated reason -- don't reason about it in the abstract. This applies with extra force to security- or correctness-adjacent code (JSON escaping, path sanitization, auth checks) where an inverted assertion silently proves nothing.
 **Principle:** 
 **Evidence:** cross-cutting-principles.md Active Principles, bullet 4
+
+### Observation 28: new-skill-candidate: New skill candidate: external-skill-integration
+
+**Status:** ACTIONED (2026-09-06) — Filed as GitHub issue #82 for worktree pickup
+**Date:** 2026-08-30
+**Type:** new-skill-candidate
+**Session:** 
+**Skill:** New skill candidate: external-skill-integration
+**Issue:** Evaluating, installing, and documenting a third-party design/frontend skill (mattpocock, taste-skill, make-interfaces-feel-better, silk-design, now refero) has happened at least 5 times, each as an ad-hoc manual sequence: research the candidate repo, check for conflict with existing skills, pick the right install mechanism (npx skills CLI vs plugin marketplace vs vendored clone), then hand-write a routing-table row plus a detail section in claude-infra-reference/SKILL.md following the existing prose pattern. No skill wraps this workflow; each pass re-derives the same steps from scratch by reading the prior sections as examples.
+**Suggested improvement:** A skill (or a checklist section inside claude-infra-reference itself) covering: how to evaluate a candidate skill/plugin repo for overlap with the existing taste-skill routing table, how to choose among the three install mechanisms seen so far (npx skills --global --copy, claude plugin marketplace add + install, vendored git clone with .git stripped), and a template for the routing-table row + detail-section writeup so the prose stays consistent across entries.
+**Principle:** This is infra-maintenance work distinct from actual design/frontend work -- it recurs whenever a new external design skill is discovered, and the manual research-evaluate-install-document sequence is the same shape each time regardless of which skill is being integrated.
+**Evidence:** https://github.com/paulchangmckay/agent-os-ultra/issues/82

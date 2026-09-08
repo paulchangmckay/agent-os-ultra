@@ -423,7 +423,10 @@
     "context-mode@context-mode": true,
     "i-have-adhd@i-have-adhd": false,
     "superpowers@superpowers-dev": true,
-    "neuroarxiv@neuroarxiv": true
+    "neuroarxiv@neuroarxiv": true,
+    "iso-24495-plain-language@iso-24495": true,
+    "refero@refero": true,
+    "agent-stylebooks@agent-stylebooks": true
   },
   "extraKnownMarketplaces": {
     "understand-anything": {
@@ -443,8 +446,28 @@
         "source": "github",
         "repo": "ayghri/i-have-adhd"
       }
+    },
+    "iso-24495": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/GaZmagik/iso-24495.git"
+      }
+    },
+    "refero": {
+      "source": {
+        "source": "github",
+        "repo": "referodesign/refero_skill"
+      }
+    },
+    "agent-stylebooks": {
+      "source": {
+        "source": "github",
+        "repo": "Neeeophytee/agent-stylebooks"
+      }
     }
   },
+  "askUserQuestionTimeout": "never",
   "autoUpdatesChannel": "latest",
-  "theme": "dark-daltonized"
+  "theme": "dark-daltonized",
+  "verbose": false
 }
