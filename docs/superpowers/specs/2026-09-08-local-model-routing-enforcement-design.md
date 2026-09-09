@@ -34,11 +34,12 @@ Four independent components:
 
 Replaces hand-written curl + JSON-payload-file calls (the workflow used during today's spot-check) with a single reusable command.
 
-- **Interface:** `scripts/local-model-call.sh <model> <prompt-file> [--max-tokens N] [--temperature N] [--category TAG]`. Prompt is read from a file, not a shell argument — avoids all quoting/escaping hazards for multi-line or quote-containing prompts (the exact problem hand-written `-d '{"...}'` calls have). `--category` is optional and passed through verbatim into the command line so the Gate 0 hook (component 2) can parse it back out for tagging.
+- **Interface:** `scripts/local-model-call.sh <model> <prompt-file> [--max-tokens N] [--temperature N] [--category TAG]`. Prompt is read from a file, not a shell argument — avoids all quoting/escaping hazards for multi-line or quote-containing prompts (the exact problem hand-written `-d '{"...}'` calls have). `--category` is optional, validated against a fixed enum matching the `model-routing` skill's Gate 0 categories (`triage`, `boilerplate-draft`, `pre-summarize`, `vision-ocr`, `retrieval`, `reasoning-check`) — an unrecognized value is rejected with a clear error, same discipline as the existing `SAFE_NAME` validation pattern in `hooks/`. Fixed enum chosen over freeform to keep the usage report's per-category counts meaningful (freeform text would fragment "triage" / "log triage" / "log-triage" into separate buckets). Passed through verbatim into the command line so the Gate 0 hook (component 2) can parse it back out for tagging.
 - **JSON construction:** via `jq -n --arg` to safely embed the prompt content — never manual string interpolation into JSON.
 - **Defaults:** `max_tokens` defaults to 512 unless overridden. This directly fixes the R1 failure mode found today — an uncapped call can no longer hang indefinitely.
 - **Timeout:** a `curl -m` cap (default 120s, overridable) so a hung call fails fast with a clear error instead of blocking the Bash tool call.
 - **Output:** extracts `.choices[0].message.content` via `jq` on success; on failure (non-2xx, timeout, invalid JSON) prints the raw response/error to stderr and exits non-zero.
+- **Scope:** chat completions only (`/v1/chat/completions`) — covers triage, boilerplate-draft, pre-summarize, vision/OCR, reasoning-check. Verified mechanically that embeddings (`/v1/embeddings`) returns a different shape (`data[]` instead of `choices[]`, no `completion_tokens`); image generation almost certainly differs further. Both remain manual/hand-written calls, out of scope for this helper — they need fundamentally different output extraction (a vector, an image) that doesn't fit a generic "print text content" script.
 - **Testing:** `shellcheck` (existing pre-commit gate) plus a live run confirming the `max_tokens` cap prevents the R1 hang.
 
 ### 2. Gate 0 audit-log hook (`hooks/post-local-model-log.js`)
@@ -47,7 +48,7 @@ A deterministic, always-on record of every local-model call that actually happen
 
 - **Wiring:** `PostToolUse`, `matcher: "Bash"` (broad, cheap match — filtering happens in-script, same pattern as `pre-skill-gate.js`'s `Skill` matcher).
 - **Match logic:** regex test against `tool_input.command` for either a direct `curl ... localhost:1234` pattern or an invocation of `local-model-call.sh`. No match → no-op, exits immediately.
-- **On match:** parses `tool_response.output` as JSON (the API response body) to extract `model`, `usage.prompt_tokens`, `usage.completion_tokens`. Parses `--category <value>`-style tagging from the command string if present (the helper script should support an optional `--category` flag for this).
+- **On match:** parses `tool_response.output` as JSON (the API response body) to extract `model`, `usage.prompt_tokens`, `usage.completion_tokens`. Both fields verified top-level across every local endpoint shape checked (chat completions and embeddings alike), so this hook logs any local-model call — including embeddings/image-gen calls made manually outside the helper script's scope — without needing endpoint-specific parsing. Parses `--category <value>`-style tagging from the command string if present (the helper script should support an optional `--category` flag for this).
 - **Failure case:** if the response isn't valid JSON (failed/timed-out call), still append an entry with `usage: null, error: true` — a failed call is itself useful audit data (see the R1 finding above), not something to drop.
 - **Log:** appends one JSON line per match to `.wolf/local-model-log.jsonl`: `{timestamp, session_id, command, model, category, usage, error}`.
 - **Testing:** one matching Bash call confirmed to produce a log line; one non-matching call confirmed to produce none.
@@ -63,8 +64,8 @@ Detecting a *miss* — a Gate-0-eligible task that didn't route locally — requ
 
 Modeled on `langsmith-plugin`'s existing `Stop`/`SubagentStop` transcript-reading pattern (verified working precedent — reads `transcript_path` from hook stdin, not from the hook payload directly, since payloads don't carry usage inline).
 
-- **Wiring:** `Stop` and `SubagentStop` hooks.
-- **Stop hook:** reads the session transcript at `transcript_path`, extracts `message.model`/`message.usage` per turn. Uses a per-session cursor marker file (`.wolf/_usage-cursor-<sessionId>.json`, same convention as existing `_skill-gate-*.json` markers) so repeated `Stop` firings within one session only account for turns since the last checkpoint — append-only, no recomputation. Missing/corrupt cursor → reprocess from transcript start (safe default; hooks must never crash the session).
+- **Wiring:** `Stop` (sync, `timeout: 120`) and `SubagentStop` (`async: true`, `timeout: 60`) hooks — matching `langsmith-plugin`'s existing sibling hooks on these same two events exactly, the house convention for this event pair. Our parse is far cheaper (69ms measured) than langsmith's turn-merging logic, so these are generous headroom, not a tight budget.
+- **Stop hook:** reads the session transcript at `transcript_path`, extracts `message.model`/`message.usage` for every turn, and **recomputes and overwrites** one session-keyed entry with fresh per-model totals — no cursor/checkpoint file. Verified mechanically: parsing a real 890-line transcript took 69ms, negligible even repeated after every turn. Trades away turn-by-turn history (only latest per-session totals are kept) for removing an entire failure mode (corrupt/missing cursor state) — acceptable since the goal is usage-by-model, not usage-by-turn.
 - **SubagentStop hook:** reads the subagent's transcript plus its sibling `.meta.json` (which carries `agentType` and the dispatch `description` — the subagent's actual purpose, already written by Claude at dispatch time, no extra tagging needed).
 - **Log:** both append to `.wolf/claude-model-usage.jsonl`: `{timestamp, session_id, model, tokens: {input, output}, agentType?, description?}`. Main-thread turns have no `agentType`/`description` — a raw conversation turn doesn't carry a task category the way a dispatched subagent does; main-thread usage rolls up to session totals only, not per-purpose.
 - **Testing:** trigger a real turn and a real subagent dispatch, confirm correct entries land in the log.
@@ -73,8 +74,12 @@ Modeled on `langsmith-plugin`'s existing `Stop`/`SubagentStop` transcript-readin
 
 Reads both `.wolf/local-model-log.jsonl` and `.wolf/claude-model-usage.jsonl`, aggregates by model, and prints call count / total tokens / sample purposes across local and Claude tiers in one on-demand view. No scheduling — run manually when wanted.
 
-## Open items for grilling / implementation
+## Resolved during grilling
 
-- Exact `--category` tagging convention for helper-script calls (fixed enum vs. freeform).
-- Whether `.wolf/local-model-log.jsonl` and `.wolf/claude-model-usage.jsonl` need a rotation/size-cap policy over time.
-- Confirm hook script timeout behavior empirically (no explicit `timeout` key planned, matching `pre-skill-gate.js`/`post-skill-record.js` precedent) — verify a slow transcript parse on `Stop` can't perceptibly delay the session.
+- **Stop hook mechanism:** recompute-and-overwrite per-session totals on every firing, not an append-only cursor-marker file. Verified mechanically (69ms to parse a real 890-line transcript) that the performance concern the cursor was solving doesn't exist at realistic scale — dropping it removes an entire failure mode (corrupt/missing cursor) for free. Trade-off accepted: only latest per-session totals are kept, not turn-by-turn history, which matches the stated goal (usage-by-model, not usage-by-turn).
+- **Helper script scope:** chat completions only. Verified mechanically that `/v1/embeddings` returns a different response shape (`data[]`, no `completion_tokens`) than chat completions (`choices[]`); image generation almost certainly differs further. Embeddings/image-gen calls stay manual, out of scope for this helper. The Gate 0 audit hook is unaffected by this boundary — verified `model`/`usage.prompt_tokens` are top-level in both shapes checked, so it logs any local-model call regardless of which endpoint it hit.
+- **`--category` tagging:** fixed enum matching the `model-routing` skill's Gate 0 categories (`triage`, `boilerplate-draft`, `pre-summarize`, `vision-ocr`, `retrieval`, `reasoning-check`), rejecting anything else. Freeform text would fragment the usage report's per-category counts.
+- **Stop/SubagentStop hook timing:** `Stop` sync with `timeout: 120`; `SubagentStop` `async: true` with `timeout: 60` — matches `langsmith-plugin`'s existing sibling hooks on these same two events exactly (the house convention for this event pair), with generous headroom given the 69ms measured parse cost.
+- **Log rotation:** none in v1. Lightweight JSONL append logs at realistic call volumes don't warrant rotation infrastructure before the problem actually exists.
+
+No open items remain; ready for `writing-plans`.
