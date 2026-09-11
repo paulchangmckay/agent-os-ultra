@@ -1,7 +1,7 @@
 # Anti-Slop Prose Skill — Design Spec
 
 Date: 2026-09-10
-Status: Approved, pending grilling
+Status: Approved, grilled
 
 ## Purpose
 
@@ -22,6 +22,7 @@ The user's goal: close a real, verified gap. A full grep of `~/.claude` plus `~/
 ```
 skills/anti-slop-prose/
   SKILL.md                          # editorial contract, modes, quality gate
+  THIRD_PARTY_NOTICES.md            # full Not-Ai MIT license text (see Licensing below)
   scripts/
     policy.py                       # 9 genre profiles, ported from Not-Ai's policy.py
     gate.py                         # deterministic pre-output checker, ported from Not-Ai's gate.py
@@ -30,11 +31,19 @@ skills/anti-slop-prose/
     vocabulary.md                   # tier-1/tier-2 AI-vocabulary review guidance
     mechanical-tells.md             # template transitions, empty framing, participial openers
     why-word-swapping-fails.md      # genericity counterfactual, correct editing order
+    profile.md                      # linguistic-research basis for the mechanical checks (added during grilling)
+    research-sources.md             # citation list backing profile.md (added during grilling)
 ```
 
 `scripts/` and `references/` are bundled inside the skill folder (confirmed with the user) rather than at the repo-root `scripts/` directory that `debt-ledger` uses — this skill is self-contained and Python (stdlib-only, zero dependencies), unlike `debt-ledger`'s project-local Node.js script, so bundling keeps it a single portable unit and easy to diff against upstream Not-Ai for future updates.
 
-Every ported file carries a one-line attribution comment: `# Adapted from udaysharmadev/Not-Ai (MIT license), https://github.com/udaysharmadev/Not-Ai`.
+## Licensing (resolved during grilling)
+
+Not-Ai's `gate.py`/`policy.py` are copied near-verbatim, so MIT's requirement to carry the copyright/permission notice with any copy applies. Resolution, confirmed with the user after walking through the alternative (an unreferenced notice file still fails MIT's "must accompany copies" requirement; a from-scratch reimplementation would avoid attribution entirely but was declined in favor of keeping the ported code faithful to upstream):
+
+- `skills/anti-slop-prose/THIRD_PARTY_NOTICES.md` contains the full Not-Ai MIT license text verbatim (copyright line + permission text), satisfying the "included in all copies or substantial portions" requirement.
+- Every ported file (`scripts/policy.py`, `scripts/gate.py`, `scripts/metrics.py`, and each file under `references/`) carries a one-line header comment: `# Adapted from udaysharmadev/Not-Ai — see THIRD_PARTY_NOTICES.md`.
+- This comment appears only in the skill's own source files under `~/.claude/skills/anti-slop-prose/` — it never appears in a prose deliverable the skill produces.
 
 ## SKILL.md contract
 
@@ -55,6 +64,7 @@ Ported near-verbatim from Not-Ai's `SKILL.md`, adjusted only to drop voice-match
   8. Preserve genuine uncertainty; don't inflate hedges into claims or vice versa.
   9. End on substance, not a repeated summary.
 - **Genre profiles (all 9, ported as-is):** LinkedIn/social, personal essay, professional email, student project report, formal academic writing, technical documentation/README, fiction. Each carries its own register and fidelity notes from Not-Ai's `SKILL.md`; genre detection runs first, every profile still obeys the same no-invention rules.
+- **Genre fallback mapping (added during grilling)**, for content types in the trigger scope that don't map cleanly to one of the 9 profile names: Slack/notification text → `social`; business-analysis docs → `technical`; anything else with no clear match → `email` (the most neutral formal-but-conversational default, same anchor-default logic as `agent-stylebooks`' tiebreak rule in CLAUDE.md §2a). This keeps genre detection consistent across sessions instead of guessing fresh each time.
 - **Quality gate (11-point checklist):** fidelity, no invention, purpose, specificity, voice, logic, restraint, register, protected content, mechanics, em dashes — ending with a run of `scripts/gate.py` as the deterministic final check.
 - **Output:** return the revised text without a long preamble; add a short disclosure note only for an assumed genre, a bracketed fact the author must supply, a material ambiguity, or a fidelity concern.
 
@@ -73,11 +83,17 @@ python3 skills/anti-slop-prose/scripts/gate.py draft.txt --genre linkedin
 python3 skills/anti-slop-prose/scripts/gate.py draft.txt --genre email --protect "Q3 renewal date"
 ```
 
+**Mechanics for ephemeral text (added during grilling, verified by running the actual script)** — most of the trigger scope is text that's never saved to a file (a Slack message or email drafted inline in a chat reply). `gate.py`'s CLI takes an optional `input_file` positional plus a `--stdin` flag; confirmed working by piping text directly: `echo "$draft" | python3 skills/anti-slop-prose/scripts/gate.py --stdin --genre email`. No temp file needed. The skill pipes the draft to the gate via stdin, reads the findings, revises if warranted, and presents only the final text to the user — never the intermediate gate output — unless a disclosure note is genuinely warranted per the Output rules above.
+
 ## Trigger scope
 
 Fires on: **any prose content that will be read by someone other than the current user in this conversation**, whether or not it is saved to a file — email drafts, Slack/notification text, essays, business-analysis docs, LinkedIn/social posts. This is confirmed as deliberately broader than `agent-stylebooks`' "must be an actual saved document" scope boundary (§2a of CLAUDE.md) — that divergence gets stated explicitly in the CLAUDE.md entry below so a future session doesn't read it as an inconsistency.
 
-Does NOT fire on: code, code comments, or a plain conversational reply addressed to the user themself (an explanation, a status update, this spec document).
+Does NOT fire on: code, code comments, a plain conversational reply addressed to the user themself (an explanation, a status update, this spec document), or **git/GitHub process artifacts** — commit messages, PR titles/descriptions, issue bodies (confirmed during grilling: these stay governed by existing git conventions and `requesting-code-review`/`github-issue-first`, not this skill, because their primary purpose is engineering process, not writing-as-content, even though they contain sentences).
+
+**Minimum-length threshold (added during grilling).** Skip the full workflow (source ledger, editorial pass, `gate.py` invocation) for text under ~15 words or a single short sentence — e.g. a brief Slack acknowledgment ("Running 10 min late, be there soon"). Write it naturally instead. The process overhead of a skill invocation plus a Bash call isn't worth it for text too short to carry the mechanical tells this skill exists to catch.
+
+**Brand-voice precedence resolved during grilling.** `brand`'s HARD-GATE already lists LinkedIn posts, social posts, and email among its triggers, and CLAUDE.md §2a's rule — brand voice always wins, no per-skill exceptions — carries over unchanged to this skill. Confirmed with the user: no personal-voice carve-out. Practical effect: for the `linkedin`, `social`, and `email` genre profiles specifically, this skill's register-level recommendations (contractions, first-person casualness, hook-opener informality) are superseded by formal brand voice every time; those 3 profiles still contribute their structural guidance (information order, paragraph shape, what to lead with) the same way a stylebook does. The `personal`, `fiction`, `student`, `academic`, `technical`, and `readme` profiles are unaffected — they aren't on `brand`'s current trigger list, so their register guidance applies as designed.
 
 ## CLAUDE.md integration
 
