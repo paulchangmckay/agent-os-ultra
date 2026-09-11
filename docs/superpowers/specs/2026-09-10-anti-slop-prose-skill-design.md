@@ -125,7 +125,18 @@ Global `~/.claude/skills/anti-slop-prose/` — matching `brand` and the plugin-i
 
 1. **CLAUDE.md §2:** add the routing-table row above.
 2. **`shared-references/anti-slop-tells.md`:** add the one-line cross-reference above.
-3. No change needed to `brand`, `iso-24495-*`, `design-taste-frontend`, or `redesign-existing-projects` — additive only.
+3. **`brand`:** add an Elements of Style prose-mechanics section (see below) — this supersedes the original "no change needed to brand" line from before this amendment.
+4. No change needed to `iso-24495-*`, `design-taste-frontend`, or `redesign-existing-projects` — additive only.
+
+## Amendment: Elements of Style integration (decided pre-implementation, before Task 1 started)
+
+The user asked to incorporate the `elements-of-style` skill (Strunk's *The Elements of Style*, 1920, public domain) into `brand` and `anti-slop-prose`. Confirmed approach: **full inline duplication** — copy the relevant rules directly into both skills' `SKILL.md` files as self-contained checklists, rather than a cross-reference to the `elements-of-style` skill. No licensing concern (public domain), unlike the Not-Ai MIT material above.
+
+Scope, confirmed with the user:
+- **`anti-slop-prose`:** add a new "Grammar mechanics" section (comma splices, dangling modifiers, parallel construction, filler-noun recast, end-emphasis) and a 12th quality-gate item, both added to Task 6's `SKILL.md` content before that task is implemented. The filler-noun "recast, don't patch" principle directly reinforces the skill's existing `references/why-word-swapping-fails.md` — both name the same failure mode from different angles (AI-tell vocabulary vs. classical misused-word review).
+- **`brand`:** add a "Prose Mechanics" section with the same 6 checks (filler nouns, comma splices, parallel construction, active voice, end-emphasis, recast-don't-patch) plus 2 new items in its existing 7-item "Common Mistake Check" list, since `brand`'s current VOICE guidance ("avoid: hedging, hype, casual, filler") never defines "filler" concretely.
+- **`iso-24495-*`:** no change — plugin-locked, not editable, and its existing active-voice/omit-needless-words rules already overlap this material; no duplication needed there.
+- New Task 9 in the implementation plan covers the `brand` edit; the former Task 9 (end-to-end verification) is renumbered to Task 10 and extended to verify the `brand` edit too.
 
 ## Out of scope
 
