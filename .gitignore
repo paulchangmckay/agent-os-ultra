@@ -77,3 +77,7 @@ docs-site/node_modules/
 docs-site/dist/
 docs-site/.astro/
 docs-site/.blume/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
