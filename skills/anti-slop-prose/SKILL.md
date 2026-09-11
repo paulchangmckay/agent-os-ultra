@@ -209,4 +209,3 @@ Keep: [strong choices worth preserving]
 Revise: [issue, quoted span, and reason]
 Missing: [information needed for a stronger draft]
 ```
-```
