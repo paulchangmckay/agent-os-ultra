@@ -20,7 +20,7 @@ import sys
 from typing import Iterable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from policy import GenrePolicy, get_policy  # noqa: E402
+from policy import GenrePolicy, get_policy, POLICIES  # noqa: E402
 
 
 WORD_RE = re.compile(r"\b[A-Za-z]+(?:'[A-Za-z]+)?\b")
@@ -222,7 +222,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run the anti-slop-prose deterministic gate.")
     parser.add_argument("input_file", nargs="?", help="Text file to evaluate")
     parser.add_argument("--stdin", action="store_true", help="Read text from standard input")
-    parser.add_argument("--genre", default="linkedin")
+    parser.add_argument("--genre", default="linkedin", choices=sorted(POLICIES))
     parser.add_argument("--json", action="store_true", help="Emit structured JSON")
     parser.add_argument(
         "--ascii-punctuation",

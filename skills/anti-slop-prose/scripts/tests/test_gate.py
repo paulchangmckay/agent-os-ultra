@@ -1,3 +1,4 @@
+# Adapted from udaysharmadev/Not-Ai — see THIRD_PARTY_NOTICES.md
 import sys
 import unittest
 from pathlib import Path

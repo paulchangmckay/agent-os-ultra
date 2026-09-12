@@ -1,7 +1,8 @@
 # Third-Party Notices
 
-This skill's `scripts/policy.py`, `scripts/gate.py`, `scripts/_shared.py`,
-`scripts/metrics.py`, and the files under `references/` are adapted from
+This skill's `SKILL.md`, `scripts/policy.py`, `scripts/gate.py`,
+`scripts/_shared.py`, `scripts/metrics.py`, `scripts/tests/test_gate.py`, and
+the files under `references/` are adapted from
 [udaysharmadev/Not-Ai](https://github.com/udaysharmadev/Not-Ai), used under
 the MIT License below.
 

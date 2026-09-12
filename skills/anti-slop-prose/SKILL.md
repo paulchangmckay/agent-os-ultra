@@ -173,21 +173,26 @@ Review every deliverable against these checks:
 
 ### Running the deterministic gate
 
+This is a global skill: it can fire while drafting prose in any project, so
+invoke the scripts by their absolute-from-home path, not a repo-relative one.
+
 For text saved to a file:
 
 ```bash
-python3 skills/anti-slop-prose/scripts/gate.py draft.txt --genre linkedin
+python3 ~/.claude/skills/anti-slop-prose/scripts/gate.py draft.txt --genre linkedin
 ```
 
-For ephemeral text drafted inline (the common case — a Slack message or email that's never saved to disk), pipe it via stdin, no temp file needed:
+For ephemeral text drafted inline (the common case — a Slack message or email that's never saved to disk), pass it via a quoted heredoc — inert to shell expansion, unlike `echo "$draft" | ...`, which would mangle prose containing `$`, backticks, `!`, or backslashes:
 
 ```bash
-echo "$draft" | python3 skills/anti-slop-prose/scripts/gate.py --stdin --genre email
+python3 ~/.claude/skills/anti-slop-prose/scripts/gate.py --stdin --genre email <<'DRAFT'
+...draft text goes here...
+DRAFT
 ```
 
 Use `--protect` once per literal fact or term that must appear in the deliverable, and `--ascii-punctuation` only when the writer or publication has explicitly requested that house style. The gate's findings are editorial prompts, reviewed in context — not obeyed mechanically. Read [`references/vocabulary.md`](references/vocabulary.md) for guidance on the tier-1/tier-2 vocabulary findings, [`references/mechanical-tells.md`](references/mechanical-tells.md) for the mechanical-pattern findings, and [`references/why-word-swapping-fails.md`](references/why-word-swapping-fails.md) when a rewrite is turning into a synonym pass.
 
-For a broader, optional diagnostic pass (word/sentence density, readability grade, stance markers), run `scripts/metrics.py` the same way. See [`references/research-sources.md`](references/research-sources.md) for the citations behind both scripts' checks.
+For a broader, optional diagnostic pass (word/sentence density, readability grade, stance markers), run `~/.claude/skills/anti-slop-prose/scripts/metrics.py` the same way. See [`references/research-sources.md`](references/research-sources.md) for the citations behind both scripts' checks.
 
 Never show the gate's raw output to the user — read the findings, revise if warranted, and present only the final text, unless a disclosure note is genuinely warranted below.
 
