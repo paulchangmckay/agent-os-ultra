@@ -5,6 +5,9 @@ Concrete, verified-duplicate patterns to avoid — shared by
 its own context-specific elaboration (dial-driven overrides, audit-fix
 priority, etc.) locally; only the base bans below are shared.
 
+For prose/writing anti-slop guidance (non-UI), see
+[`skills/anti-slop-prose/references/vocabulary.md`](../anti-slop-prose/references/vocabulary.md).
+
 ## Fake precision
 
 - **Fake-round or fake-precise numbers.** `99.99%`, `50%`, `$100.00` read as invented. Use organic, messy data instead: `47.2%`, `$99.00`, `+1 (312) 847-1928`.

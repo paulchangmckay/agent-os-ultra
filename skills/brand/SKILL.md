@@ -110,6 +110,17 @@ Label this block with a header line: `### Brand Spec JSON` so downstream skills 
 - One idea per slide maximum
 - Margins: generous (1" for print/PDF)
 
+## Prose Mechanics — The Elements of Style
+
+Adapted from William Strunk Jr.'s *The Elements of Style* (1920, public domain). Every output passes these checks before the brand gate clears, regardless of tone:
+
+- **No filler nouns.** `case`, `character`, `factor`, `feature`, `nature`, `system` used as padding (e.g. "acts of a hostile character") signal the real subject is hiding — recast the sentence around the concrete noun or verb instead of patching the word.
+- **No comma splices.** Never join two independent clauses with a bare comma. Use a semicolon, a period, or a coordinating conjunction with a comma before it. If the second clause opens with an adverb (`however`, `therefore`, `accordingly`), use a semicolon — never a comma.
+- **Parallel construction.** Co-ordinate ideas take matching grammatical form (a list of gerunds stays gerunds; a list of infinitives stays infinitives).
+- **Active voice by default.** Passive only when the paragraph's real subject is the thing acted upon.
+- **End-emphasis.** Put the word or phrase you want the reader to remember at the end of the sentence — the position of emphasis.
+- **Recast, don't patch.** When a word choice feels wrong, rewrite the sentence from its actual subject rather than swapping in a synonym.
+
 ## When Invoked Explicitly (/brand)
 
 If the user types `/brand` without specifying an output type, ask:
@@ -120,7 +131,7 @@ Then deliver the Brand Spec Card for that format.
 
 ## Common Mistake Check
 
-Before confirming brand gate, quickly scan for these 7 anti-patterns and flag if relevant:
+Before confirming brand gate, quickly scan for these 9 anti-patterns and flag if relevant:
 1. Too many colors (more than 3 from the palette in one piece)
 2. Casual language in formal context
 3. Inconsistent typography hierarchy
@@ -128,3 +139,5 @@ Before confirming brand gate, quickly scan for these 7 anti-patterns and flag if
 5. Crowded slides / dense text blocks
 6. Palette exception "just this once"
 7. Mark too small or missing
+8. Filler-noun padding (`case`, `character`, `factor`, `feature`, `nature`, `system`) instead of a concrete noun or verb
+9. Comma splice joining two independent clauses
