@@ -1,6 +1,6 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-08-19T00:48:41.762Z
+> Auto-maintained by OpenWolf. Last scanned: 2026-09-23T03:34:49.317Z
 > Files: 588 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ../../../private/tmp/claude-501/-Users-paulmckay--claude/9cf2a1c7-04c3-42a5-a549-9713c7efa89f/scratchpad/
@@ -49,7 +49,7 @@
 ## ./
 
 - `.DS_Store` (~2729 tok)
-- `.gitignore` — Git ignore rules (~447 tok)
+- `.gitignore` — Git ignore rules (~547 tok)
 - `.gitleaks.toml` (~232 tok)
 - `.gitmodules` (~34 tok)
 - `.i-have-adhd-always` (~0 tok)

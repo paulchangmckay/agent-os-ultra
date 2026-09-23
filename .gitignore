@@ -52,6 +52,13 @@ settings.local.json
 .wolf/designqc-report.json
 .wolf/suggestions.json
 .wolf/_skill-gate-*.json
+
+# Local daemon/job/context-mode runtime state (not portable, may contain secrets)
+daemon/
+jobs/
+context-mode/*.log
+context-mode/content/
+skills/synced/
 .wolf/_gate-*.json
 .wolf/_cron-gate.lock
 .wolf/_last-seen-head
