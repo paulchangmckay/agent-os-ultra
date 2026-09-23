@@ -271,3 +271,14 @@ DECLINED (YYYY-MM-DD) = reviewed, not pursued
 **Suggested improvement:** A skill (or a checklist section inside claude-infra-reference itself) covering: how to evaluate a candidate skill/plugin repo for overlap with the existing taste-skill routing table, how to choose among the three install mechanisms seen so far (npx skills --global --copy, claude plugin marketplace add + install, vendored git clone with .git stripped), and a template for the routing-table row + detail-section writeup so the prose stays consistent across entries.
 **Principle:** This is infra-maintenance work distinct from actual design/frontend work -- it recurs whenever a new external design skill is discovered, and the manual research-evaluate-install-document sequence is the same shape each time regardless of which skill is being integrated.
 **Evidence:** https://github.com/paulchangmckay/agent-os-ultra/issues/82
+
+### Observation 29: model-routing skill/CLAUDE.md never documented Fable, and a filled-in guess was materially wrong
+
+**Status:** OPEN
+**Date:** 2026-09-23
+**Type:** skill-improvement
+**Session:** unknown
+**Skill:** model-routing
+**Issue:** Neither skills/model-routing/SKILL.md nor CLAUDE.md section 3 mention the Fable model tier at all, despite it being a valid Agent tool model value. During a 2026-09-23 grilling pass, Claude guessed (from the name alone) that Fable was a creative-writing/narrative-voice model and drafted a routing rule around that. Web research against platform.claude.com/docs/en/models/fable-5-1/overview showed this was wrong: Fable 5.1 is actually the escalation tier ABOVE Opus 5.5 for demanding reasoning and long-horizon agentic work ($10/$50 per MTok vs Opus 5.5 $4/$20, default effort high), not a creative-writing model.
+**Suggested improvement:** When a policy/routing skill needs to describe a model tier it has never documented, verify the tier's actual positioning against Anthropic's official platform docs before writing a routing rule around a name-based guess, even one explicitly flagged as low-confidence. Also confirmed: the Claude API has a real per-message effort parameter (beta), but it is not exposed on this harness's Agent tool today — worth tracking if that tool surface changes.
+**Principle:** 
