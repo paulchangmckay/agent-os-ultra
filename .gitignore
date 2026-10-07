@@ -48,6 +48,9 @@ settings.local.json
 .wolf/hooks/_session.json
 .wolf/hooks/_session-*.json
 .wolf/_cerebrum-guard-*.json
+**/.wolf/.local-model-call-last-response.json
+**/.wolf/local-model-log.jsonl
+**/.wolf/claude-model-usage.jsonl
 .wolf/_plugin-health-check-last-run
 .wolf/designqc-report.json
 .wolf/suggestions.json

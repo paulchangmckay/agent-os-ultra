@@ -1,0 +1,15 @@
+{
+  "eligible_models": {
+    "llama3.2-3b": { "backends": ["lmstudio"], "size_gb": 1.9 },
+    "llama3.2:3b": { "backends": ["ollama"], "size_gb": 1.9 },
+    "nomic-embed-text": { "backends": ["ollama"], "size_gb": 0.27 }
+  },
+  "categories": {
+    "triage": ["llama3.2-3b", "llama3.2:3b"],
+    "boilerplate-draft": ["llama3.2-3b", "llama3.2:3b"],
+    "pre-summarize": ["llama3.2-3b", "llama3.2:3b"],
+    "vision-ocr": [],
+    "retrieval": ["nomic-embed-text"],
+    "reasoning-check": ["llama3.2-3b", "llama3.2:3b"]
+  }
+}
