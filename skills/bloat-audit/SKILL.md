@@ -30,7 +30,7 @@ bump) behaves like an empty diff for this skill's purposes.
 
 | Target phrase | Diff command |
 |---|---|
-| `uncommitted` | `files=$(git ls-files --others --exclude-standard); git add -N -- $files; git diff; git reset -- $files` — captures untracked files with intent-to-add markers for the diff, then resets those markers: this includes untracked additions in the output (plain `git diff` alone misses them) without leaving a persistent index mutation. |
+| `uncommitted` | `git diff; git ls-files --others --exclude-standard -z \| while IFS= read -r -d '' f; do git diff --no-index -- /dev/null "$f"; done` — `git diff` covers tracked modifications; the null-delimited loop covers untracked files via `git diff --no-index`, which compares paths directly without ever touching the index (plain `git diff` alone misses untracked files). `git diff --no-index` exits 1 when it finds a difference — expected, not a failure. No index mutation, so there's nothing to clean up and no empty-file-list edge case to guard. |
 | `staged` | `git diff --staged` |
 | `branch` | resolve the real default branch first — `git remote show origin \| grep 'HEAD branch'` (fallback: `git symbolic-ref refs/remotes/origin/HEAD`) — then `git diff origin/<default>...HEAD` (fall back to local `<default>...HEAD` if no `origin` remote). Three-dot, not two-dot: this shows what the current branch would introduce, not a raw snapshot diff. |
 | PR number, URL, or branch name | `gh pr diff <ref>` — `gh` accepts all three forms natively, no parsing needed |
