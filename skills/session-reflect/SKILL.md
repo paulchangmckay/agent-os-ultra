@@ -119,6 +119,21 @@ End-of-session audit with three phases. Phase 1 (cerebrum) always runs automatic
     skill-observation backlog hasn't been reviewed [in N days / yet] — run it
     now, or wrap up?" Never gate the user's task on this; proceed either way.
 
+    **Model-tier usage skim (same cadence as step 11).** When a review is due,
+    also skim `.wolf/claude-model-usage.jsonl` — read it from the main
+    checkout (the hook writes under `CLAUDE_PROJECT_DIR`, not the worktree):
+    - Look for a subagent_type/model pattern worth flagging — e.g. repeated
+      `opus` or `fable` dispatches for a subagent_type that isn't in
+      `config/claude-tier-limits.json` (so nothing blocked it). Entries with
+      `model: null` are dispatches that omitted `model` (inherited default).
+      A `capped: true` line normally means an over-cap explicit request, but
+      can also mean an invalid `max_tier` in that config file — check it.
+    - If you find one, log it with `scripts/wolf-observation-log.js append`
+      (type `skill-improvement`, skill `model-routing`). Describe the pattern
+      and cite a few example log lines.
+    - This step only creates the observation and never resolves it. It then
+      flows into step 12's normal OPEN-entry handling.
+
 12. **If the user accepts the review:**
     a. Archive first:
        ```bash
