@@ -1,6 +1,6 @@
 # check-upstream: review-gated updates for linked repos and plugins
 
-**Status:** Approved, not yet grilled
+**Status:** Approved, grilled
 **Date:** 2026-10-07
 
 ## Context
@@ -48,6 +48,26 @@ Given the plugin cache has no usable git history, the only way to get a
 real diff to evaluate is to maintain a separate, read-only mirror clone of
 each marketplace plugin's source repo.
 
+Mechanically confirmed during grilling:
+
+- `plugins/known_marketplaces.json` maps **marketplace → one GitHub repo**,
+  and several repos back more than one enabled plugin.
+  `claude-plugins-official` alone backs five
+  (`security-guidance`/`skill-creator`/`feature-dev`/`plugin-dev`/
+  `ba-agent`) from one repo (`anthropics/claude-plugins-official`). A mirror
+  must be per-repo, not per-plugin, or sibling-plugin changes pollute each
+  other's evaluation.
+- `superpowers-dev`'s marketplace source is
+  `{"source": "directory", "path": ".../superpowers"}` — a local-folder
+  plugin source, not a remote repo. The plugin layer gives superpowers zero
+  upstream linkage today, same as the vendored-files situation above —
+  confirming Phase B is the only path back to a real upstream link for it.
+- `plugins/marketplaces/<name>/` (the installed-plugin content on disk) is
+  not itself a separate git clone — it's a plain gitignored directory
+  inside this repo's working tree (`plugins/` is excluded wholesale in
+  `.gitignore`), confirming the "not git-backed" finding directly rather
+  than relying on the research subagent's word for it.
+
 This spec covers **Phase A only**: the general `check-upstream` workflow,
 applied to the existing submodule (`langsmith-plugin`) and the nine
 marketplace plugins. Re-submoduling `superpowers` and
@@ -60,9 +80,13 @@ spec.
 
 ### Registry file
 
-`.wolf/upstream-sources.json` — one entry per tracked source, the single
+`.wolf/upstream-sources.json` — one entry per tracked **source** (a
+submodule, or a repo backing one or more marketplace plugins), the single
 source of truth for what `check-upstream` checks and what it considers
-"already reviewed":
+"already reviewed". Marketplace entries are keyed by repo, with a nested
+map for the plugin(s) that repo backs — this is the per-repo-mirror /
+per-plugin-subpath fix from grilling, not the original per-plugin-only
+draft:
 
 ```json
 {
@@ -72,32 +96,72 @@ source of truth for what `check-upstream` checks and what it considers
     "upstream": "https://github.com/langchain-ai/langsmith-claude-code-plugins",
     "last_reviewed_sha": "<sha>"
   },
+  "claude-plugins-official": {
+    "type": "marketplace-mirror",
+    "marketplace": "claude-plugins-official",
+    "repo": "anthropics/claude-plugins-official",
+    "mirror_path": "~/.claude/.upstream-mirrors/claude-plugins-official",
+    "plugins": {
+      "security-guidance": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
+      "skill-creator": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
+      "feature-dev": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
+      "plugin-dev": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
+      "ba-agent": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"}
+    }
+  },
   "refero": {
     "type": "marketplace-mirror",
     "marketplace": "refero",
-    "plugin": "refero",
+    "repo": "referodesign/refero_skill",
     "mirror_path": "~/.claude/.upstream-mirrors/refero",
-    "last_reviewed_sha": "<sha>"
+    "plugins": {
+      "refero": {"subpath": ".", "last_reviewed_sha": "<sha>"}
+    }
   }
 }
 ```
 
-One entry per source for all nine marketplace plugins plus
-`langsmith-plugin` — ten entries total for Phase A. `last_reviewed_sha` is
-updated only when a source is actually reviewed (applied, or explicitly
-dismissed — see Error Handling), never just because it was fetched.
+One entry per distinct repo. For Phase A that's `langsmith-plugin` plus
+however many distinct repos the nine marketplace plugins resolve to (one
+repo, `claude-plugins-official`, covers five of them; the rest are
+presumably 1:1 but that gets confirmed during setup, not assumed here).
+`last_reviewed_sha` — at the plugin level for marketplace entries, at the
+source level for submodules — is updated only when that specific thing is
+actually reviewed (applied, or explicitly dismissed — see Error Handling),
+never just because the repo was fetched.
+
+One registry entry (`context-mode@context-mode`) could not be traced to a
+marketplace source in `known_marketplaces.json` during grilling — flagged
+for discovery at setup time, not resolved here; falls under the "missing
+from registry" handling below if it turns out not to be a diffable git
+source at all (e.g. an MCP-only plugin with nothing upstream to compare).
 
 ### Mirror clones for marketplace plugins
 
-For each marketplace plugin, `~/.claude/.upstream-mirrors/<plugin>/` holds
-a plain, read-only `git clone` of that plugin's source repo (the same repo
-the marketplace itself points at). This is separate from Claude Code's own
-plugin cache and is never written to by anything except `git fetch` — it
-exists only to give `check-upstream` a real diff to show.
+For each distinct repo, `~/.claude/.upstream-mirrors/<repo-name>/` holds a
+plain, read-only `git clone` of that repo. This is separate from Claude
+Code's own plugin cache and is never written to by anything except
+`git fetch` — it exists only to give `check-upstream` a real diff to show.
+`.upstream-mirrors/` is added to `.gitignore`: these clones are
+regenerable derived content (same category as the plugin cache, per the
+portable-repo generated-file rule) — if one goes missing, `check-upstream`
+just re-clones it, since a mirror only ever tracks upstream HEAD and never
+holds anything unique.
 
-Setup is one-time per plugin, done during implementation: clone each
-source repo, record its path in the registry, set `last_reviewed_sha` to
-the commit matching the currently-installed plugin version.
+Setup is one-time per repo, done during implementation:
+
+1. Clone the source repo into its mirror path.
+2. For a shared repo, inspect it to find each plugin's subpath (its own
+   directory within the repo) and record it per-plugin in the registry.
+3. Bootstrap `last_reviewed_sha` (per-plugin, or per-source for a
+   1:1 repo) to the mirror's current `HEAD` at the moment of setup —
+   the plugin cache doesn't reliably expose which exact upstream commit is
+   installed, so "whatever upstream has right now" is treated as the
+   already-reviewed baseline. If the installed version actually lags
+   upstream by a few commits, this just means those commits won't be
+   flagged on the first run — safe direction to be wrong in, since it
+   under-reports already-shipped history rather than over-reporting work
+   that was never installed.
 
 ### Command: `/check-upstream [source]`
 
@@ -107,12 +171,16 @@ checks just that one.
 For each source:
 
 1. **Fetch.** Submodule: `git fetch` inside the submodule path.
-   Marketplace-mirror: `git fetch` inside the mirror clone.
-2. **Diff.** Compare `last_reviewed_sha..origin/HEAD` (or the relevant
-   remote-tracking ref). No new commits → skip, nothing to report.
-3. **Evaluate.** Claude reads the diff/commit log and judges it against
-   CLAUDE.md's principles and this repo's current setup (hook contracts
-   the plugin/submodule's files are relied on by, any local
+   Marketplace-mirror: `git fetch` inside the mirror clone (once per repo,
+   even if it backs several plugins).
+2. **Diff.** Submodule: compare `last_reviewed_sha..origin/HEAD`.
+   Marketplace-mirror, per plugin: compare `last_reviewed_sha..origin/HEAD`
+   **scoped to that plugin's subpath** (`git log`/`git diff -- <subpath>`),
+   so a sibling plugin's changes in the same repo never appear in this
+   plugin's evaluation. No new commits in scope → skip, nothing to report.
+3. **Evaluate.** Claude reads the (scoped) diff/commit log and judges it
+   against CLAUDE.md's principles and this repo's current setup (hook
+   contracts the plugin/submodule's files are relied on by, any local
    customizations). Produces one of:
    - **SAFE** — no conflict found, recommend applying.
    - **REVIEW** — a specific change needs the user's judgment (e.g. a
@@ -122,13 +190,22 @@ For each source:
 
    Each verdict names the commit(s) or change driving it — never a bare
    label with no reasoning.
-4. **Report and ask.** Show the verdict per source. Ask: apply now?
+4. **Report and ask.** Show the verdict per source (per plugin, for a
+   shared repo). Ask: apply now?
 5. **Apply on yes.**
    - Submodule: bump the submodule pointer to the fetched commit, commit
-     the pointer change in the main repo.
+     the pointer change in the main repo, then fast-forward that
+     submodule's `local-customizations` branch to match — this keeps the
+     existing documented habit (CLAUDE.md §6) intact instead of letting it
+     go stale once `check-upstream` starts touching these submodules.
    - Marketplace-mirror: run `claude plugin update <plugin>@<marketplace>`.
-   - Either way: update `last_reviewed_sha` in the registry to the commit
-     just applied.
+     `claude plugin update` always pulls whatever the marketplace catalog
+     currently has — there's no flag to pin it to the exact commit just
+     reviewed. Evaluate-then-apply happen back-to-back in the same command
+     invocation, so the window for upstream to gain further, unreviewed
+     commits in between is accepted as negligible; no extra re-check.
+   - Either way: update `last_reviewed_sha` (per-plugin for marketplace
+     sources) in the registry to the commit just applied.
 6. **On no:** leave `last_reviewed_sha` unchanged, move to the next
    source. The unreviewed commits surface again next run.
 
@@ -160,6 +237,8 @@ that point, not assumed from this spec's research summary.
 
 ## Testing
 
+- Add `.upstream-mirrors/` to `.gitignore` before the first mirror clone
+  exists, and confirm `git status` shows it clean afterward.
 - Dry run against `langsmith-plugin` (already a real submodule with real
   upstream history) first — lowest-risk proof that fetch/diff/evaluate/
   apply works end to end before setting up nine mirror clones.
