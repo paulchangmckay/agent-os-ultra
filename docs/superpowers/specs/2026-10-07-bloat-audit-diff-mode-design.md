@@ -1,6 +1,6 @@
 # bloat-audit diff mode
 
-**Status:** Approved, pending grilling
+**Status:** Approved, grilled
 **Date:** 2026-10-07
 
 ## Context
@@ -26,6 +26,19 @@ which is a file this repo owns and already carries the exact tag taxonomy
 
 ## Design
 
+### Exclusions — unchanged, both modes
+
+Whole-repo mode excludes `.git`, `node_modules`, and every submodule path
+listed in `.gitmodules` (read dynamically, same logic `debt-ledger` uses) —
+vendored/upstream code isn't this repo's bloat to report. Diff mode applies
+the identical exclusion: a diff that only touches an excluded path (e.g. a
+submodule pointer bump) behaves like an empty diff for this skill's
+purposes. Considered dropping exclusions in diff mode (a diff is already
+narrow by construction) and rejected it during grilling — consistency with
+the existing whole-repo rule matters more than the marginal narrowing, and
+a PR that happens to touch vendored code still shouldn't get flagged as
+this repo's bloat.
+
 ### Scope: two modes, one skill
 
 - **No target named** → whole-repo scan (existing behavior, unchanged).
@@ -38,13 +51,39 @@ which is a file this repo owns and already carries the exact tag taxonomy
 |---|---|
 | `uncommitted` | `git diff` |
 | `staged` | `git diff --staged` |
-| `branch` | `git diff origin/main...HEAD` (fall back to local `main...HEAD` if no `origin` remote) |
-| PR number or link | `gh pr diff <ref>` |
+| `branch` | diff against the repo's actual default branch — resolve it with `git remote show origin \| grep 'HEAD branch'` (fallback: `git symbolic-ref refs/remotes/origin/HEAD`), then `git diff origin/<default>...HEAD` (fall back to local `<default>...HEAD` if no `origin` remote) |
+| PR number, URL, or branch name | `gh pr diff <ref>` — `gh` accepts all three forms natively (confirmed via `gh pr diff --help`: `USAGE: gh pr diff [<number> \| <url> \| <branch>]`), no parsing needed on this skill's side |
 
 Target detection is natural-language, same as ponytail-review's own
 convention ("name a target in plain words to narrow or widen it") — the
 skill body instructs matching the user's phrasing against this table rather
 than requiring an exact keyword.
+
+Hardcoding `main` was considered and rejected during grilling: this skill
+can run in any project, not just this repo, and a hardcoded branch name
+would silently produce an empty or wrong diff in a repo whose default
+branch is `master` or `trunk`. Dynamic resolution costs one extra command
+and removes that failure mode.
+
+The branch diff uses three-dot (`...`, merge-base) comparison, not two-dot
+— it shows what the current branch would introduce, not a raw snapshot
+diff against wherever the default branch currently sits (which would also
+surface not-yet-merged default-branch changes as noise).
+
+### Failure handling
+
+- **`gh` fails** (not installed, not authenticated, bad ref): surface gh's
+  own error message and stop. No silent fallback to a different scope —
+  same no-ops-gracefully pattern `github-issue-first` already uses for its
+  own `gh` dependency. Generalizes to any git command failing for the same
+  reason (e.g. no git repository found): report the error, stop, don't
+  guess at a substitute scope.
+- **Requested diff is empty** (clean uncommitted tree, nothing staged,
+  branch has no commits ahead of default): output a distinct
+  `No <target> changes to scan.` This is deliberately different from
+  `Lean already. Ship.`, which means a real scan ran against real content
+  and found zero bloat — collapsing the two would make "there was nothing
+  here to look at" indistinguishable from "I looked and it's clean."
 
 ### Tags and output — unchanged
 
@@ -61,8 +100,10 @@ shrink: same logic, fewer lines. Show the shorter form.
 
 Output: one line per finding, ranked biggest cut first:
 `<tag> <what to cut>. <replacement>. [path]`. Ends with
-`net: -N lines, -M deps possible.`, or `Lean already. Ship.` if nothing
-qualifies — identical closing convention in both modes.
+`net: -N lines, -M deps possible.`, or `Lean already. Ship.` if a scan ran
+and found nothing — identical closing convention in both modes. (If there
+was no diff to scan at all, see Failure handling above for the distinct
+`No <target> changes to scan.` case.)
 
 ### Boundary — unchanged, both modes
 
@@ -116,3 +157,13 @@ already relied on elsewhere in this repo's workflow (`github-issue-first`,
 - PR-link target: smoke-test against any open PR in this repo (or skip with
   a note if none are open) and confirm `gh pr diff` output feeds the same
   tag/output pipeline without error.
+- Run with target `uncommitted` on a clean tree (no uncommitted changes)
+  and confirm the output is `No uncommitted changes to scan.`, distinct
+  from `Lean already. Ship.`
+- Seed a diff that touches only an excluded path (e.g. a submodule pointer
+  bump) and confirm it's treated as empty, not scanned for bloat.
+- Confirm default-branch resolution: run `git remote show origin | grep
+  'HEAD branch'` against this repo and verify it returns `main` (matches
+  `gh repo view --json defaultBranchRef`, both already confirmed during
+  grilling) — the branch target's dynamic lookup should produce the same
+  value, not a hardcoded one.
