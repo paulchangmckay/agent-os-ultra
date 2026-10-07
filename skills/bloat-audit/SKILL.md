@@ -30,7 +30,7 @@ bump) behaves like an empty diff for this skill's purposes.
 
 | Target phrase | Diff command |
 |---|---|
-| `uncommitted` | `git diff` |
+| `uncommitted` | `git add -N -- $(git ls-files --others --exclude-standard); git diff` — intent-to-adds untracked files so `git diff` includes them as additions (plain `git diff` alone misses untracked files entirely) |
 | `staged` | `git diff --staged` |
 | `branch` | resolve the real default branch first — `git remote show origin \| grep 'HEAD branch'` (fallback: `git symbolic-ref refs/remotes/origin/HEAD`) — then `git diff origin/<default>...HEAD` (fall back to local `<default>...HEAD` if no `origin` remote). Three-dot, not two-dot: this shows what the current branch would introduce, not a raw snapshot diff. |
 | PR number, URL, or branch name | `gh pr diff <ref>` — `gh` accepts all three forms natively, no parsing needed |
