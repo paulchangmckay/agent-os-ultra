@@ -21,6 +21,8 @@ mechanisms, documented in CLAUDE.md §6:
   `iso-24495-plain-language`, `refero`, `agent-stylebooks`, `typesafe-ai`) —
   installed via Claude Code's plugin manager, tracked in `settings.json`'s
   `enabledPlugins`. This is a third, separate update mechanism from git.
+  (Corrected during plan blueprinting, see below: only 7 of these actually
+  have a trackable local artifact.)
 
 The user now wants to re-establish upstream links everywhere that's
 missing, and — for every mechanism — gate updates behind an explicit
@@ -68,9 +70,40 @@ Mechanically confirmed during grilling:
   `.gitignore`), confirming the "not git-backed" finding directly rather
   than relying on the research subagent's word for it.
 
+**Correction found during plan blueprinting (supersedes the research
+subagent's claim above and the baseline-bootstrap decision from
+grilling):** `plugins/installed_plugins.json` records a real
+`gitCommitSha` per installed plugin — e.g.
+`document-skills@anthropic-agent-skills` → `683bc88e56f3e09ba94f7055977f3d3aa499f202`.
+This is exact, not an approximation, and directly available without
+tag-matching guesswork. It covers 7 of the plugins:
+`understand-anything`, `document-skills`, `neuroarxiv`,
+`iso-24495-plain-language`, `refero`, `agent-stylebooks`, `typesafe-ai`.
+
+It does **not** cover `claude-plugins-official` (which backs the 5
+enabled plugins `security-guidance`/`skill-creator`/`feature-dev`/
+`plugin-dev`/`ba-agent`) or `context-mode` — neither has an entry in
+`installed_plugins.json` nor a directory under `plugins/cache/`. These
+appear to ship bundled with the Claude Code distribution itself rather
+than being independently cached/versioned, so there is no local artifact
+for a mirror clone to diff against. **Phase A's registry excludes both.**
+They surface through the existing "missing from registry" gap-detection
+instead of being force-fit with an approximated baseline — if either ever
+gains a trackable artifact (e.g. a future Claude Code version starts
+caching them like the others), they can be added the same way the 7
+others were.
+
+Phase A's actual marketplace scope is therefore **7 plugins across 7
+repos** (`claude-plugins-official`'s shared-repo case no longer applies in
+Phase A, since none of its 5 plugins are in scope — the per-repo/
+per-plugin registry shape from the mirror-granularity fix is kept anyway,
+since it's still correct in general and `claude-plugins-official` may
+need it if it becomes trackable later), plus the `langsmith-plugin`
+submodule.
+
 This spec covers **Phase A only**: the general `check-upstream` workflow,
-applied to the existing submodule (`langsmith-plugin`) and the nine
-marketplace plugins. Re-submoduling `superpowers` and
+applied to the existing submodule (`langsmith-plugin`) and the 7
+trackable marketplace plugins. Re-submoduling `superpowers` and
 `senior-engineering-partner` (**Phase B**) is a separate, higher-risk
 migration (real risk of losing local edits if the upstream-base commit is
 misidentified) that reuses this workflow once proven, and gets its own
@@ -96,17 +129,13 @@ draft:
     "upstream": "https://github.com/langchain-ai/langsmith-claude-code-plugins",
     "last_reviewed_sha": "<sha>"
   },
-  "claude-plugins-official": {
+  "document-skills": {
     "type": "marketplace-mirror",
-    "marketplace": "claude-plugins-official",
-    "repo": "anthropics/claude-plugins-official",
-    "mirror_path": "~/.claude/.upstream-mirrors/claude-plugins-official",
+    "marketplace": "anthropic-agent-skills",
+    "repo": "anthropics/skills",
+    "mirror_path": "~/.claude/.upstream-mirrors/anthropic-agent-skills",
     "plugins": {
-      "security-guidance": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
-      "skill-creator": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
-      "feature-dev": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
-      "plugin-dev": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"},
-      "ba-agent": {"subpath": "<discovered during setup>", "last_reviewed_sha": "<sha>"}
+      "document-skills": {"subpath": "<discovered during setup>", "last_reviewed_sha": "683bc88e56f3e09ba94f7055977f3d3aa499f202"}
     }
   },
   "refero": {
@@ -122,19 +151,14 @@ draft:
 ```
 
 One entry per distinct repo. For Phase A that's `langsmith-plugin` plus
-however many distinct repos the nine marketplace plugins resolve to (one
-repo, `claude-plugins-official`, covers five of them; the rest are
-presumably 1:1 but that gets confirmed during setup, not assumed here).
-`last_reviewed_sha` — at the plugin level for marketplace entries, at the
-source level for submodules — is updated only when that specific thing is
-actually reviewed (applied, or explicitly dismissed — see Error Handling),
-never just because the repo was fetched.
-
-One registry entry (`context-mode@context-mode`) could not be traced to a
-marketplace source in `known_marketplaces.json` during grilling — flagged
-for discovery at setup time, not resolved here; falls under the "missing
-from registry" handling below if it turns out not to be a diffable git
-source at all (e.g. an MCP-only plugin with nothing upstream to compare).
+the 7 repos backing the 7 trackable marketplace plugins (see the
+correction above). `claude-plugins-official` and `context-mode` are
+deliberately absent — they have no trackable local artifact and surface
+via gap-detection instead, not via a registry entry. `last_reviewed_sha` —
+at the plugin level for marketplace entries, at the source level for
+submodules — is updated only when that specific thing is actually
+reviewed (applied, or explicitly dismissed — see Error Handling), never
+just because the repo was fetched.
 
 ### Mirror clones for marketplace plugins
 
@@ -153,15 +177,12 @@ Setup is one-time per repo, done during implementation:
 1. Clone the source repo into its mirror path.
 2. For a shared repo, inspect it to find each plugin's subpath (its own
    directory within the repo) and record it per-plugin in the registry.
-3. Bootstrap `last_reviewed_sha` (per-plugin, or per-source for a
-   1:1 repo) to the mirror's current `HEAD` at the moment of setup —
-   the plugin cache doesn't reliably expose which exact upstream commit is
-   installed, so "whatever upstream has right now" is treated as the
-   already-reviewed baseline. If the installed version actually lags
-   upstream by a few commits, this just means those commits won't be
-   flagged on the first run — safe direction to be wrong in, since it
-   under-reports already-shipped history rather than over-reporting work
-   that was never installed.
+3. Bootstrap `last_reviewed_sha` (per-plugin, or per-source for a 1:1
+   repo) to the exact commit recorded in
+   `plugins/installed_plugins.json`'s `gitCommitSha` field for that
+   plugin — not an approximation; this is the literal upstream commit
+   currently installed. Verify it's actually present in the mirror clone
+   (`git cat-file -e <sha>`) before trusting it as the baseline.
 
 ### Command: `/check-upstream [source]`
 
@@ -241,7 +262,7 @@ that point, not assumed from this spec's research summary.
   exists, and confirm `git status` shows it clean afterward.
 - Dry run against `langsmith-plugin` (already a real submodule with real
   upstream history) first — lowest-risk proof that fetch/diff/evaluate/
-  apply works end to end before setting up nine mirror clones.
+  apply works end to end before setting up the 7 marketplace mirror clones.
 - For marketplace plugins: verify the mirror-clone diff actually matches
   what `claude plugin update` would apply, by checking the mirror's
   `origin/HEAD` against the version string the plugin manifest reports
