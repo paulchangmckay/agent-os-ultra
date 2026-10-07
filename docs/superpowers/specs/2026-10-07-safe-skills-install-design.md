@@ -48,26 +48,50 @@ other repos just haven't hit it yet.
 A new script, `scripts/safe-skills-install.sh <repo> <skill-name>
 [<skill-name> ...]`, wraps the CLI call:
 
-1. **Snapshot before.** Capture `git status --porcelain=v1 skills/` as the
-   baseline. This is a delta against the baseline, not a "working tree must
-   be clean" precondition — pre-existing untracked content unrelated to any
-   requested skill (e.g. a skill someone is drafting by hand) must be left
-   alone and not mistaken for CLI drift.
+1. **Snapshot before.** Capture two things as the baseline:
+   - `git rev-parse HEAD` — the commit the repo is on.
+   - A content hash of every file under `skills/`: `find skills -type f
+     -print0 | xargs -0 sha256sum | sort` (hash-based, not a `git status`
+     line comparison — a file that was already uncommitted-modified before
+     this run, and gets modified *again* by the CLI, shows the same status
+     line both before and after even though its content changed; only a
+     content hash catches that).
 
 2. **Run the CLI.** `npx skills@latest add "$REPO" "${NAMES[@]}" --global
-   --copy -y`.
+   --copy -y`. If this exits non-zero, skip straight to a failure report
+   (see step 7) — don't attempt classification against a run that may not
+   have completed.
 
-3. **Snapshot after.** Capture `git status --porcelain=v1 skills/` again.
+3. **Snapshot after.** Re-run both captures from step 1.
 
-4. **Compute the delta** — every path under `skills/` that changed status
-   between the two snapshots (new untracked, newly modified, newly deleted)
-   that was NOT already in that state in the baseline.
+4. **Concurrent-session guard.** Compare `HEAD` before and after. If it
+   changed, a commit landed from somewhere else (another live session)
+   during this run — abort any automated cleanup, print the raw file-hash
+   delta for manual review, and exit non-zero. Reverting a path that
+   changed for this reason risks discarding a concurrent session's real
+   work, which is worse than the over-install bug this script exists to
+   fix. (Observed directly, twice, in this repo during the session that
+   designed this script — not a hypothetical.)
 
-5. **Classify each top-level `skills/<dirname>` touched by the delta** by
-   matching `<dirname>` (basename only — the CLI flattens a source repo's
-   category subdirectories like `skills/engineering/pr` into a flat
-   `skills/pr/` on install, confirmed this session) against the requested
-   name list:
+5. **Compute the delta** — every path under `skills/` whose content hash
+   differs between the two snapshots, or that's new/deleted in one but not
+   the other.
+
+6. **Nested-path safety check.** Before classifying anything, check every
+   changed path's depth under `skills/`. The CLI is expected to flatten a
+   source repo's category subdirectories (`skills/engineering/pr` →
+   `skills/pr/`) — confirmed empirically this session for `mattpocock/skills`,
+   the one integrated repo that actually has category subdirectories (the
+   other three — `taste-skill`, `pg-aiguide`, `make-interfaces-feel-better`
+   — are flat already, checked directly via the GitHub API). If any changed
+   path is deeper than `skills/<name>/...` (i.e. `skills/<something>/<something-else>/...`),
+   the script can't safely tell which segment is the skill name — bail out
+   immediately with an error naming the unexpected path, make no changes,
+   and exit non-zero. Don't attempt automated cleanup on a structure it
+   can't classify.
+
+7. **Classify each top-level `skills/<dirname>` touched by the delta** by
+   matching `<dirname>` against the requested name list:
    - **In the request list:** keep, even if it overwrote a previously
      installed version of that same skill — an update to a requested name
      is always the intended outcome, never something to revert.
@@ -83,15 +107,21 @@ A new script, `scripts/safe-skills-install.sh <repo> <skill-name>
      added `agents/` subfolders to 6 already-installed skills that weren't
      part of the request).
 
-6. **Report.** Print a summary: which requested names are confirmed present
-   under `skills/`, and — only if anything happened — a second section
-   listing what was reverted/deleted and why ("unrequested new skill:
-   `code-review`", "unrequested overwrite of existing skill `handoff`:
-   reverted 1 file, removed 1 new path"). Exit 0 regardless of whether
-   anything had to be cleaned up — the script's whole job is to make the
-   end state correct, not to make the caller handle a special failure case
-   for a problem it already fixed. The summary is what makes the drift
-   visible, not the exit code.
+8. **Report and exit.** Three distinct outcomes, not conflated:
+   - **CLI itself failed (step 2):** report that plainly, exit non-zero.
+     This is a real failure — the end state is not correct.
+   - **Concurrent commit detected (step 4) or unexpected nesting (step 6):**
+     report what was found, make no automated changes, exit non-zero —
+     the caller needs to look at this by hand.
+   - **Normal completion:** print which requested names are confirmed
+     present under `skills/`, and — only if anything happened — a second
+     section listing what was reverted/deleted and why ("unrequested new
+     skill: `code-review`", "unrequested overwrite of existing skill
+     `handoff`: reverted 1 file, removed 1 new path"). Exit 0 here
+     regardless of whether cleanup was needed — the script's job in this
+     path is to make the end state correct, not to make the caller handle
+     a special case for a problem it already fixed. The summary is what
+     makes the drift visible, not the exit code.
 
 ## Known caveat preserved, not solved by this script
 
@@ -100,7 +130,10 @@ A new script, `scripts/safe-skills-install.sh <repo> <skill-name>
 script doesn't change that — it should be run from the main checkout, same
 as today, or its resulting new/changed files moved into a worktree
 afterward. The script's own usage text should say so; no code needs to
-handle it.
+handle it. (Explicitly reconsidered during grilling — adding active
+worktree detection here would mean solving a pre-existing caveat of the
+underlying CLI that's out of scope for a wrapper whose job is fixing the
+*filtering* bug specifically.)
 
 ## Documentation update
 
@@ -132,6 +165,26 @@ behavioral, run against this repo's real git state in a scratch branch:
    *different* names from the same repo, confirm the marker string survives
    (proves revert-of-existing-skill logic fires correctly) — this is a
    reproduction of occurrence 2's exact failure mode.
-4. **Reporting case:** confirm exit code is 0 and the summary output names
-   anything that was reverted, for both the clean-request and the
-   dirty-request runs above.
+4. **Already-dirty-file case:** uncommit a one-line hand-edit to an
+   already-installed skill's `SKILL.md` (leave it as an uncommitted
+   modification, same status line before and after a further edit),
+   run the wrapper requesting different names, then make a second
+   modification to that same file to simulate the CLI changing it further
+   — confirm the hash-based delta catches this even though the `git
+   status` line never changed. This is the specific gap content hashing
+   was added to close.
+5. **Concurrent-commit case:** start the wrapper, and from a second shell
+   make and commit a change under `skills/` before the wrapper's
+   after-snapshot runs (simulate via a short `sleep` injected for the
+   test, or by running the two halves manually) — confirm the wrapper
+   detects the `HEAD` change, makes no automated changes, and exits
+   non-zero rather than reverting the concurrent commit's content.
+6. **Nested-path case:** manually place a file at
+   `skills/some-category/some-skill/SKILL.md` (simulating a future CLI
+   version that stops flattening) before running the wrapper, confirm it
+   bails out with a clear error and makes no changes, rather than
+   misclassifying `some-category` as a single skill.
+7. **Reporting case:** confirm exit codes and messages are distinct for
+   all three outcomes — CLI failure, concurrent-commit/nested-path abort,
+   and normal completion (0, with a visible summary whenever cleanup
+   happened) — for the clean-request and dirty-request runs above.
