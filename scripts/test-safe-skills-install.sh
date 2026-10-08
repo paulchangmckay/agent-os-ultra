@@ -288,6 +288,47 @@ FAKECLI
 
 test_empty_skills_dir_no_crash
 
+test_already_dirty_file_further_modified_is_still_caught() {
+  local fixture fake_cli output
+  fixture=$(make_fixture)
+  (
+    cd "$fixture" || exit
+    mkdir -p skills/existing-skill
+    echo "original" > skills/existing-skill/SKILL.md
+    git add -A
+    git commit -q -m "add existing-skill"
+    # Pre-existing uncommitted drift, unrelated to this run — same status
+    # line ("M") both before and after the CLI call, which is exactly why
+    # a git-status-line comparison would miss the CLI's further edit below.
+    echo "already dirty before this run" > skills/existing-skill/SKILL.md
+  )
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+echo "further modified by the CLI" > skills/existing-skill/SKILL.md
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  local content
+  content=$(cat "$fixture/skills/existing-skill/SKILL.md")
+
+  if [ "$content" = "original" ] && echo "$output" | grep -q "existing-skill"; then
+    pass "already-dirty file further modified by CLI: still detected and reverted via content hash"
+  else
+    fail "already-dirty file: content=$content output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_already_dirty_file_further_modified_is_still_caught
+
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 [ "$FAIL_COUNT" -eq 0 ]
