@@ -94,7 +94,7 @@ done < <(
 UNRECOGNIZED_NESTED=()
 for rel in "${CHANGED_RELPATHS[@]}"; do
   topdir="${rel%%/*}"
-  if ! name_in "$topdir" "${NAMES[@]}" && ! name_in "$topdir" "${PRE_EXISTING_TOPDIRS[@]}"; then
+  if ! name_in "$topdir" "${NAMES[@]}" && ! name_in "$topdir" "${PRE_EXISTING_TOPDIRS[@]+"${PRE_EXISTING_TOPDIRS[@]}"}"; then
     segcount=$(echo "$rel" | awk -F/ '{print NF}')
     if [ "$segcount" -gt 2 ]; then
       UNRECOGNIZED_NESTED+=("$rel")
@@ -121,7 +121,7 @@ for topdir in "${CHANGED_TOPDIRS[@]+"${CHANGED_TOPDIRS[@]}"}"; do
   if name_in "$topdir" "${NAMES[@]}"; then
     continue
   fi
-  if name_in "$topdir" "${PRE_EXISTING_TOPDIRS[@]}"; then
+  if name_in "$topdir" "${PRE_EXISTING_TOPDIRS[@]+"${PRE_EXISTING_TOPDIRS[@]}"}"; then
     git checkout -- "skills/$topdir"
     untracked=$(git status --porcelain=v1 -- "skills/$topdir" | awk '$1 == "??" {print $2}')
     if [ -n "$untracked" ]; then

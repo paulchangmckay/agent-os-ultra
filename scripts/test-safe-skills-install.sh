@@ -246,6 +246,43 @@ FAKECLI
 test_over_install_is_reverted
 test_overwrite_of_existing_skill_is_reverted
 
+test_empty_skills_dir_no_crash() {
+  local fixture fake_cli output exit_code
+  fixture=$(make_fixture)
+  # Remove the .gitkeep to simulate a truly empty skills directory — this
+  # triggers the PRE_EXISTING_TOPDIRS empty-array expansion bug if unguarded.
+  (
+    cd "$fixture" || exit
+    rm skills/.gitkeep
+    git add -A
+    git commit -q -m "remove gitkeep"
+  )
+
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo new-skill 2>&1)
+  exit_code=$?
+
+  if [ "$exit_code" -eq 0 ] && [ -d "$fixture/skills/new-skill" ] && echo "$output" | grep -q "new-skill"; then
+    pass "empty skills directory: exits 0, no unbound variable crash, skill installed"
+  else
+    fail "empty skills directory: exit=$exit_code output=$output; skill exists=$([ -d "$fixture/skills/new-skill" ] && echo yes || echo no)"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_empty_skills_dir_no_crash
+
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 [ "$FAIL_COUNT" -eq 0 ]
