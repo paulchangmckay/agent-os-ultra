@@ -261,9 +261,14 @@ test_empty_skills_dir_no_crash() {
   fake_cli=$(mktemp)
   cat > "$fake_cli" <<'FAKECLI'
 #!/usr/bin/env bash
+# Create the requested skill plus an extra unrequested one, which forces the
+# code to expand PRE_EXISTING_TOPDIRS (which is empty) while checking if the
+# unrequested directory should be cleaned up.
 shift
 mkdir -p "skills/$1"
 echo "content" > "skills/$1/SKILL.md"
+mkdir -p skills/unwanted-extra
+echo "content" > skills/unwanted-extra/SKILL.md
 exit 0
 FAKECLI
   chmod +x "$fake_cli"
@@ -271,10 +276,10 @@ FAKECLI
   output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo new-skill 2>&1)
   exit_code=$?
 
-  if [ "$exit_code" -eq 0 ] && [ -d "$fixture/skills/new-skill" ] && echo "$output" | grep -q "new-skill"; then
-    pass "empty skills directory: exits 0, no unbound variable crash, skill installed"
+  if [ "$exit_code" -eq 0 ] && [ ! -d "$fixture/skills/unwanted-extra" ] && [ -d "$fixture/skills/new-skill" ] && echo "$output" | grep -q "unwanted-extra"; then
+    pass "empty skills directory: exits 0, unrequested new skill removed, requested skill kept (exercises PRE_EXISTING_TOPDIRS expansion)"
   else
-    fail "empty skills directory: exit=$exit_code output=$output; skill exists=$([ -d "$fixture/skills/new-skill" ] && echo yes || echo no)"
+    fail "empty skills directory: exit=$exit_code output=$output; unwanted-extra exists=$([ -d "$fixture/skills/unwanted-extra" ] && echo yes || echo no); new-skill exists=$([ -d "$fixture/skills/new-skill" ] && echo yes || echo no)"
   fi
 
   cleanup_fixture "$fixture"
