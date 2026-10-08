@@ -73,6 +73,38 @@ FAKECLI
 
 test_happy_path
 
+test_concurrent_commit_aborts() {
+  local fixture fake_cli output exit_code
+  fixture=$(make_fixture)
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Simulates a concurrent session: installs the requested skill AND commits
+# something, so HEAD moves during the run.
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+git add -A
+git commit -q -m "concurrent session's own commit"
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  exit_code=$?
+
+  if [ "$exit_code" -ne 0 ] && echo "$output" | grep -qi "concurrent\|ABORTED"; then
+    pass "concurrent commit: aborts non-zero without auto-reverting"
+  else
+    fail "concurrent commit: exit=$exit_code output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_concurrent_commit_aborts
+
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 [ "$FAIL_COUNT" -eq 0 ]

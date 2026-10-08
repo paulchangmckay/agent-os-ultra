@@ -32,6 +32,15 @@ if [ ! -d skills ]; then
   exit 1
 fi
 
+hash_skills() {
+  find skills -type f | sort | while IFS= read -r f; do
+    sha256sum "$f"
+  done
+}
+
+HEAD_BEFORE=$(git rev-parse HEAD)
+HASHES_BEFORE=$(hash_skills)
+
 CLI_CMD="${SAFE_SKILLS_INSTALL_CLI:-npx skills@latest add}"
 # shellcheck disable=SC2086
 $CLI_CMD "$REPO" "${NAMES[@]}" --global --copy -y
@@ -40,6 +49,15 @@ CLI_EXIT=$?
 if [ "$CLI_EXIT" -ne 0 ]; then
   echo "FAILED: the install command exited $CLI_EXIT — nothing was classified or cleaned up. Check the output above." >&2
   exit "$CLI_EXIT"
+fi
+
+HEAD_AFTER=$(git rev-parse HEAD)
+HASHES_AFTER=$(hash_skills)
+
+if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
+  echo "ABORTED: HEAD moved ($HEAD_BEFORE -> $HEAD_AFTER) during this run — a commit landed from somewhere else (likely a concurrent session). No automated cleanup was performed; review by hand:" >&2
+  diff <(echo "$HASHES_BEFORE") <(echo "$HASHES_AFTER") >&2
+  exit 1
 fi
 
 echo "Requested skills confirmed present:"
