@@ -49,15 +49,38 @@ this repo's bloat.
 
 | Target phrase | Diff command |
 |---|---|
-| `uncommitted` | `git diff` |
+| `uncommitted` | `git diff HEAD`, plus a null-delimited `git ls-files --others --exclude-standard` loop through `git diff --no-index` for untracked files |
 | `staged` | `git diff --staged` |
-| `branch` | diff against the repo's actual default branch — resolve it with `git remote show origin \| grep 'HEAD branch'` (fallback: `git symbolic-ref refs/remotes/origin/HEAD`), then `git diff origin/<default>...HEAD` (fall back to local `<default>...HEAD` if no `origin` remote) |
+| `branch` | diff against the repo's actual default branch — resolve it with `git symbolic-ref --short refs/remotes/origin/HEAD` (fast, local; fallback: `git remote show origin \| sed -n 's/.*HEAD branch: //p'`), then `git diff origin/<default>...HEAD` |
 | PR number, URL, or branch name | `gh pr diff <ref>` — `gh` accepts all three forms natively (confirmed via `gh pr diff --help`: `USAGE: gh pr diff [<number> \| <url> \| <branch>]`), no parsing needed on this skill's side |
 
 Target detection is natural-language, same as ponytail-review's own
 convention ("name a target in plain words to narrow or widen it") — the
 skill body instructs matching the user's phrasing against this table rather
-than requiring an exact keyword.
+than requiring an exact keyword. The bare word `branch` means "diff the
+current branch against the resolved default branch"; any other branch name
+(not the literal word `branch`) is treated as a `gh pr diff` target, same as
+a PR number or URL.
+
+`uncommitted` uses `git diff HEAD` rather than plain `git diff`: plain
+`git diff` only compares working tree to index, so it misses anything
+already `git add`ed. `git diff HEAD` is a strict superset — it catches
+staged and unstaged tracked changes alike — and is still read-only. The
+untracked-file loop is unaffected by this change (`git diff HEAD` still
+doesn't show untracked files, so the loop is still needed).
+
+Branch resolution runs the fast local check first and the network check
+second, in that order, each extracting just the branch name from the
+command's raw output: `git symbolic-ref --short refs/remotes/origin/HEAD`
+resolves instantly and returns the name directly (e.g. `origin/main`) with
+no parsing needed; the fallback `git remote show origin | sed -n 's/.*HEAD
+branch: //p'` makes a network call and needs the `sed` extraction because
+the raw command prints `  HEAD branch: main`, not just `main`. If there's
+no `origin` remote at all, that's an ordinary git-command failure per
+Failure handling below — surface it and stop, never guess at a default
+branch name. (Rejected: guessing a local `<default>...HEAD` fallback with
+no remote to resolve a name from — there is no reliable way to know the
+default branch name without asking a remote.)
 
 Hardcoding `main` was considered and rejected during grilling: this skill
 can run in any project, not just this repo, and a hardcoded branch name
@@ -69,6 +92,15 @@ The branch diff uses three-dot (`...`, merge-base) comparison, not two-dot
 — it shows what the current branch would introduce, not a raw snapshot
 diff against wherever the default branch currently sits (which would also
 surface not-yet-merged default-branch changes as noise).
+
+Diff-mode shell commands live in fenced code blocks in the skill body
+rather than raw inside markdown table cells — a table cell containing a
+real pipe needs a `\|` escape to not break the table's column syntax, but
+an agent copying that raw text verbatim into a shell would copy the
+literal backslash too, silently breaking the command (a backslash-escaped
+pipe in bash is a literal `|` argument character, not a pipe operator).
+Only `staged` and the PR-link row stay inline in the table — both are
+single commands with no pipe character, so no escaping issue applies.
 
 ### Failure handling
 
@@ -160,10 +192,16 @@ already relied on elsewhere in this repo's workflow (`github-issue-first`,
 - Run with target `uncommitted` on a clean tree (no uncommitted changes)
   and confirm the output is `No uncommitted changes to scan.`, distinct
   from `Lean already. Ship.`
+- Stage a scratch file with no commit and confirm the `uncommitted` target
+  reports it: `git diff HEAD` (unlike plain `git diff`) shows staged-but-
+  uncommitted tracked changes, which is the specific gap this mechanism
+  fixes.
 - Seed a diff that touches only an excluded path (e.g. a submodule pointer
   bump) and confirm it's treated as empty, not scanned for bloat.
-- Confirm default-branch resolution: run `git remote show origin | grep
-  'HEAD branch'` against this repo and verify it returns `main` (matches
-  `gh repo view --json defaultBranchRef`, both already confirmed during
-  grilling) — the branch target's dynamic lookup should produce the same
-  value, not a hardcoded one.
+- Confirm default-branch resolution: run `git symbolic-ref --short
+  refs/remotes/origin/HEAD` against this repo and verify it returns `main`
+  (matches `gh repo view --json defaultBranchRef`, both already confirmed
+  during grilling) — the branch target's dynamic lookup should produce the
+  same value, not a hardcoded one. This is the fast local check and should
+  succeed directly, without needing the `git remote show origin` network
+  fallback.

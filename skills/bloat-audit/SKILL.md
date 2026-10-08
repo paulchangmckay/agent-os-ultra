@@ -30,10 +30,62 @@ bump) behaves like an empty diff for this skill's purposes.
 
 | Target phrase | Diff command |
 |---|---|
-| `uncommitted` | `git diff; git ls-files --others --exclude-standard -z \| while IFS= read -r -d '' f; do git diff --no-index -- /dev/null "$f"; done` — `git diff` covers tracked modifications; the null-delimited loop covers untracked files via `git diff --no-index`, which compares paths directly without ever touching the index (plain `git diff` alone misses untracked files). `git diff --no-index` exits 1 when it finds a difference — expected, not a failure. No index mutation, so there's nothing to clean up and no empty-file-list edge case to guard. |
+| `uncommitted` | see below — tracked changes (staged and unstaged) plus untracked files |
 | `staged` | `git diff --staged` |
-| `branch` | resolve the real default branch first — `git remote show origin \| grep 'HEAD branch'` (fallback: `git symbolic-ref refs/remotes/origin/HEAD`) — then `git diff origin/<default>...HEAD` (fall back to local `<default>...HEAD` if no `origin` remote). Three-dot, not two-dot: this shows what the current branch would introduce, not a raw snapshot diff. |
+| `branch` | see below — resolves the repo's actual default branch, then diffs against it |
 | PR number, URL, or branch name | `gh pr diff <ref>` — `gh` accepts all three forms natively, no parsing needed |
+
+The bare word `branch` means "diff the current branch against the resolved
+default branch." Any other branch name (not the literal word `branch`) is
+treated as a `gh pr diff` target, same as a PR number or URL.
+
+**`uncommitted`:**
+
+```bash
+git diff HEAD
+git ls-files --others --exclude-standard -z | while IFS= read -r -d '' f; do
+  git diff --no-index -- /dev/null "$f"
+done
+```
+
+`git diff HEAD` covers tracked modifications — staged and unstaged alike,
+since comparing against `HEAD` (not the index) catches anything already
+`git add`ed as well as working-tree-only edits; plain `git diff` would miss
+staged changes. The null-delimited loop covers untracked files via `git
+diff --no-index`, which compares paths directly without touching the index
+— `git diff HEAD` still doesn't show untracked files, so the loop is still
+needed. `git diff --no-index` exits 1 when it finds a difference —
+expected, not a failure. No index mutation, so there's nothing to clean up
+and no empty-file-list edge case to guard.
+
+**`branch`:**
+
+```bash
+git symbolic-ref --short refs/remotes/origin/HEAD
+```
+
+Fast and local — resolves directly to the fully-qualified ref the diff
+command needs below (e.g. `origin/main`), nothing further to extract. If
+it fails (e.g. `origin/HEAD` isn't set locally — rare, but possible after
+a shallow or partial clone), fall back to the network call:
+
+```bash
+git remote show origin | sed -n 's/.*HEAD branch: //p'
+```
+
+This prints only the bare branch name (e.g. `main`) from the raw `  HEAD
+branch: main` line `git remote show origin` outputs — prefix it with
+`origin/` before using it below, since this path (unlike the first) hasn't
+already qualified it with the remote name. If there's no `origin` remote
+at all, that's a failure per Failure handling below — surface it and stop,
+don't guess at a default branch name.
+
+Once resolved to a fully-qualified ref (`origin/<name>`), diff with
+three-dot (`...`, merge-base) comparison, not two-dot: `git diff
+origin/<name>...HEAD` — this shows what the current branch would
+introduce, not a raw snapshot diff against wherever the default branch
+currently sits (which would also surface not-yet-merged default-branch
+changes as noise).
 
 Never hardcode a branch name (`main`, `master`, etc.) — a hardcoded name
 silently produces an empty or wrong diff in a repo with a different
