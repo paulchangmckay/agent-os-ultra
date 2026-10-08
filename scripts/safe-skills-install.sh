@@ -108,6 +108,32 @@ if [ "${#UNRECOGNIZED_NESTED[@]}" -gt 0 ]; then
   exit 1
 fi
 
+CHANGED_TOPDIRS=()
+for rel in "${CHANGED_RELPATHS[@]+"${CHANGED_RELPATHS[@]}"}"; do
+  topdir="${rel%%/*}"
+  if ! name_in "$topdir" "${CHANGED_TOPDIRS[@]+"${CHANGED_TOPDIRS[@]}"}"; then
+    CHANGED_TOPDIRS+=("$topdir")
+  fi
+done
+
+REVERTED_SUMMARY=()
+for topdir in "${CHANGED_TOPDIRS[@]+"${CHANGED_TOPDIRS[@]}"}"; do
+  if name_in "$topdir" "${NAMES[@]}"; then
+    continue
+  fi
+  if name_in "$topdir" "${PRE_EXISTING_TOPDIRS[@]}"; then
+    git checkout -- "skills/$topdir"
+    untracked=$(git status --porcelain=v1 -- "skills/$topdir" | awk '$1 == "??" {print $2}')
+    if [ -n "$untracked" ]; then
+      echo "$untracked" | xargs -r rm -rf
+    fi
+    REVERTED_SUMMARY+=("unrequested overwrite of existing skill '$topdir': reverted")
+  else
+    rm -rf "skills/$topdir"
+    REVERTED_SUMMARY+=("unrequested new skill '$topdir': removed")
+  fi
+done
+
 echo "Requested skills confirmed present:"
 for n in "${NAMES[@]}"; do
   if [ -d "skills/$n" ]; then
@@ -116,5 +142,10 @@ for n in "${NAMES[@]}"; do
     echo "  - $n (MISSING — the install may not have actually included it)"
   fi
 done
+
+if [ "${#REVERTED_SUMMARY[@]}" -gt 0 ]; then
+  echo "Cleaned up drift beyond the request:"
+  printf '  - %s\n' "${REVERTED_SUMMARY[@]}"
+fi
 
 exit 0

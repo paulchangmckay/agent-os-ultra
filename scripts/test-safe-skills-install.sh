@@ -173,6 +173,79 @@ FAKECLI
 
 test_pre_existing_untracked_file_is_left_alone
 
+test_over_install_is_reverted() {
+  local fixture fake_cli output exit_code
+  fixture=$(make_fixture)
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Simulates the real occurrence-2 bug: installs the requested skill plus
+# an unrequested extra one.
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+mkdir -p skills/unwanted-extra
+echo "content" > skills/unwanted-extra/SKILL.md
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  exit_code=$?
+
+  if [ "$exit_code" -eq 0 ] && [ ! -d "$fixture/skills/unwanted-extra" ] && [ -d "$fixture/skills/wanted-skill" ] && echo "$output" | grep -q "unwanted-extra"; then
+    pass "over-install: exits 0, unrequested new skill removed, requested skill kept"
+  else
+    fail "over-install: exit=$exit_code output=$output; unwanted-extra exists=$([ -d "$fixture/skills/unwanted-extra" ] && echo yes || echo no)"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_overwrite_of_existing_skill_is_reverted() {
+  local fixture fake_cli output exit_code
+  fixture=$(make_fixture)
+  (
+    cd "$fixture" || exit
+    mkdir -p skills/existing-skill
+    echo "original" > skills/existing-skill/SKILL.md
+    git add -A
+    git commit -q -m "add existing-skill"
+  )
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Simulates the real occurrence-2 bug: installs the requested skill, but
+# ALSO overwrites an already-installed, unrequested skill.
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+echo "overwritten" > skills/existing-skill/SKILL.md
+mkdir -p skills/existing-skill/agents
+echo "new" > skills/existing-skill/agents/openai.yaml
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  exit_code=$?
+  local content
+  content=$(cat "$fixture/skills/existing-skill/SKILL.md")
+
+  if [ "$exit_code" -eq 0 ] && [ "$content" = "original" ] && [ ! -e "$fixture/skills/existing-skill/agents" ] && echo "$output" | grep -q "existing-skill"; then
+    pass "overwrite of existing skill: exits 0, reverted to original, stray agents/ removed"
+  else
+    fail "overwrite of existing skill: exit=$exit_code content=$content output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_over_install_is_reverted
+test_overwrite_of_existing_skill_is_reverted
+
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 [ "$FAIL_COUNT" -eq 0 ]
