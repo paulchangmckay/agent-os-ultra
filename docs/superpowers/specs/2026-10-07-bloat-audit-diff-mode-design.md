@@ -51,7 +51,7 @@ this repo's bloat.
 |---|---|
 | `uncommitted` | `git diff HEAD`, plus a null-delimited `git ls-files --others --exclude-standard` loop through `git diff --no-index` for untracked files |
 | `staged` | `git diff --staged` |
-| `branch` | diff against the repo's actual default branch — resolve it with `git symbolic-ref --short refs/remotes/origin/HEAD` (fast, local; fallback: `git remote show origin \| sed -n 's/.*HEAD branch: //p'`), then `git diff origin/<default>...HEAD` |
+| `branch` | diff against the repo's actual default branch — see skill body for the exact fallback commands (fast local check first, network check second), then `git diff origin/<default>...HEAD` |
 | PR number, URL, or branch name | `gh pr diff <ref>` — `gh` accepts all three forms natively (confirmed via `gh pr diff --help`: `USAGE: gh pr diff [<number> \| <url> \| <branch>]`), no parsing needed on this skill's side |
 
 Target detection is natural-language, same as ponytail-review's own

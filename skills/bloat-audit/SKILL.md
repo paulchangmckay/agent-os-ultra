@@ -78,7 +78,14 @@ branch: main` line `git remote show origin` outputs — prefix it with
 `origin/` before using it below, since this path (unlike the first) hasn't
 already qualified it with the remote name. If there's no `origin` remote
 at all, that's a failure per Failure handling below — surface it and stop,
-don't guess at a default branch name.
+don't guess at a default branch name. This pipeline's own exit code can't
+be trusted for that check — a missing remote makes `git remote show` fail,
+but piping into `sed` means the pipeline's exit status is `sed`'s, which
+exits 0 on empty input regardless. Treat empty output from this fallback
+(including the rare `HEAD branch: (unknown)` case, which `sed` happily
+extracts as the literal string `(unknown)`) as the same failure: surface
+that no default branch could be resolved and stop, don't build
+`origin/(unknown)` or an empty ref and run the diff anyway.
 
 Once resolved to a fully-qualified ref (`origin/<name>`), diff with
 three-dot (`...`, merge-base) comparison, not two-dot: `git diff
