@@ -355,6 +355,60 @@ FAKECLI
 
 test_cli_failure_is_reported_and_propagated
 
+test_full_occurrence_2_reproduction() {
+  local fixture fake_cli output
+  fixture=$(make_fixture)
+  (
+    cd "$fixture" || exit
+    for s in grill-me grilling handoff; do
+      mkdir -p "skills/$s"
+      echo "original $s" > "skills/$s/SKILL.md"
+    done
+    git add -A
+    git commit -q -m "pre-existing skills"
+  )
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Reproduces occurrence 2: 3 names requested (passed as args), but the CLI
+# installs those 3 PLUS 2 unrequested new skills, and overwrites 1 of the
+# 3 pre-existing skills that wasn't even part of this request.
+shift
+for name in "$@"; do
+  [ "$name" = "--global" ] && break
+  mkdir -p "skills/$name"
+  echo "content" > "skills/$name/SKILL.md"
+done
+mkdir -p skills/ask-matt skills/tdd
+echo "content" > skills/ask-matt/SKILL.md
+echo "content" > skills/tdd/SKILL.md
+echo "overwritten by the flaky CLI" > skills/handoff/SKILL.md
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" mattpocock/skills claude-handoff pr git-guardrails-claude-code 2>&1)
+
+  local ok=1
+  [ -d "$fixture/skills/claude-handoff" ] || ok=0
+  [ -d "$fixture/skills/pr" ] || ok=0
+  [ -d "$fixture/skills/git-guardrails-claude-code" ] || ok=0
+  [ -d "$fixture/skills/ask-matt" ] && ok=0
+  [ -d "$fixture/skills/tdd" ] && ok=0
+  [ "$(cat "$fixture/skills/handoff/SKILL.md")" = "original handoff" ] || ok=0
+
+  if [ "$ok" -eq 1 ]; then
+    pass "full occurrence-2 reproduction: requested kept, extras removed, overwritten pre-existing skill reverted"
+  else
+    fail "full occurrence-2 reproduction: output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_full_occurrence_2_reproduction
+
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 [ "$FAIL_COUNT" -eq 0 ]
