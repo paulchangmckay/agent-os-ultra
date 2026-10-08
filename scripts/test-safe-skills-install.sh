@@ -329,6 +329,32 @@ FAKECLI
 
 test_already_dirty_file_further_modified_is_still_caught
 
+test_cli_failure_is_reported_and_propagated() {
+  local fixture fake_cli output exit_code
+  fixture=$(make_fixture)
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+echo "simulated network error" >&2
+exit 7
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  exit_code=$?
+
+  if [ "$exit_code" -eq 7 ] && echo "$output" | grep -qi "FAILED"; then
+    pass "CLI failure: exit code propagated, reported as FAILED"
+  else
+    fail "CLI failure: exit=$exit_code output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_cli_failure_is_reported_and_propagated
+
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 [ "$FAIL_COUNT" -eq 0 ]
