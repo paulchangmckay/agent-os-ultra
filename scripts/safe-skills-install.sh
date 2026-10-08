@@ -60,6 +60,54 @@ if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
   exit 1
 fi
 
+name_in() {
+  local needle="$1"
+  shift
+  local x
+  for x in "$@"; do
+    [ "$x" = "$needle" ] && return 0
+  done
+  return 1
+}
+
+PRE_EXISTING_TOPDIRS=()
+while IFS= read -r topdir; do
+  [ -n "$topdir" ] && PRE_EXISTING_TOPDIRS+=("$topdir")
+done < <(
+  echo "$HASHES_BEFORE" \
+    | awk '{print $2}' \
+    | sed -n 's#^skills/\([^/]*\).*$#\1#p' \
+    | sort -u
+)
+
+CHANGED_RELPATHS=()
+while IFS= read -r rel; do
+  [ -n "$rel" ] && CHANGED_RELPATHS+=("$rel")
+done < <(
+  diff <(echo "$HASHES_BEFORE") <(echo "$HASHES_AFTER") \
+    | grep -E '^[<>] ' \
+    | awk '{print $3}' \
+    | sed -n 's#^skills/##p' \
+    | sort -u
+)
+
+UNRECOGNIZED_NESTED=()
+for rel in "${CHANGED_RELPATHS[@]}"; do
+  topdir="${rel%%/*}"
+  if ! name_in "$topdir" "${NAMES[@]}" && ! name_in "$topdir" "${PRE_EXISTING_TOPDIRS[@]}"; then
+    segcount=$(echo "$rel" | awk -F/ '{print NF}')
+    if [ "$segcount" -gt 2 ]; then
+      UNRECOGNIZED_NESTED+=("$rel")
+    fi
+  fi
+done
+
+if [ "${#UNRECOGNIZED_NESTED[@]}" -gt 0 ]; then
+  echo "ABORTED: unexpected nested path(s) under an unrecognized top-level directory — can't safely tell whether this is a stray category directory wrapping a real skill. No automated cleanup was performed; review by hand:" >&2
+  printf '  %s\n' "${UNRECOGNIZED_NESTED[@]}" >&2
+  exit 1
+fi
+
 echo "Requested skills confirmed present:"
 for n in "${NAMES[@]}"; do
   if [ -d "skills/$n" ]; then
