@@ -288,7 +288,7 @@ FAKECLI
 
 test_empty_skills_dir_no_crash
 
-test_already_dirty_file_further_modified_is_still_caught() {
+test_already_dirty_file_untouched_by_cli_survives() {
   local fixture fake_cli output
   fixture=$(make_fixture)
   (
@@ -297,18 +297,24 @@ test_already_dirty_file_further_modified_is_still_caught() {
     echo "original" > skills/existing-skill/SKILL.md
     git add -A
     git commit -q -m "add existing-skill"
-    # Pre-existing uncommitted drift, unrelated to this run — same status
-    # line ("M") both before and after the CLI call, which is exactly why
-    # a git-status-line comparison would miss the CLI's further edit below.
+    # The user's own uncommitted edit, made before this run and unrelated to
+    # it. The CLI below never touches this file. Reverting it anyway (as the
+    # old git-checkout-based mechanism did, resetting every tracked file in
+    # the directory back to the commit) would destroy real work the script
+    # had no business touching — that was the C1 bug. The snapshot-based
+    # mechanism must leave it exactly as the user left it.
     echo "already dirty before this run" > skills/existing-skill/SKILL.md
   )
   fake_cli=$(mktemp)
   cat > "$fake_cli" <<'FAKECLI'
 #!/usr/bin/env bash
+# Installs the requested skill plus an unrequested extra under
+# existing-skill/, but never touches existing-skill/SKILL.md itself.
 shift
 mkdir -p "skills/$1"
 echo "content" > "skills/$1/SKILL.md"
-echo "further modified by the CLI" > skills/existing-skill/SKILL.md
+mkdir -p skills/existing-skill/extra
+echo "unrequested addition" > skills/existing-skill/extra/notes.md
 exit 0
 FAKECLI
   chmod +x "$fake_cli"
@@ -317,17 +323,138 @@ FAKECLI
   local content
   content=$(cat "$fixture/skills/existing-skill/SKILL.md")
 
-  if [ "$content" = "original" ] && echo "$output" | grep -q "existing-skill"; then
-    pass "already-dirty file further modified by CLI: still detected and reverted via content hash"
+  if [ "$content" = "already dirty before this run" ] && [ ! -e "$fixture/skills/existing-skill/extra" ]; then
+    pass "already-dirty file untouched by CLI: survives; unrequested addition elsewhere in the dir still reverted"
   else
-    fail "already-dirty file: content=$content output=$output"
+    fail "already-dirty file untouched by CLI: content=$content output=$output"
   fi
 
   cleanup_fixture "$fixture"
   rm -f "$fake_cli"
 }
 
-test_already_dirty_file_further_modified_is_still_caught
+test_already_dirty_file_untouched_by_cli_survives
+
+test_untracked_file_beside_a_cli_touched_file_survives() {
+  local fixture fake_cli output
+  fixture=$(make_fixture)
+  (
+    cd "$fixture" || exit
+    mkdir -p skills/existing-skill
+    echo "original" > skills/existing-skill/SKILL.md
+    git add -A
+    git commit -q -m "add existing-skill"
+  )
+  # Never committed, never touched by the CLI below — a draft sitting in
+  # the same directory as a file the CLI DOES overwrite.
+  echo "scratch notes" > "$fixture/skills/existing-skill/NOTES.md"
+
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+echo "overwritten by the flaky CLI" > skills/existing-skill/SKILL.md
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  local notes skill
+  notes=$(cat "$fixture/skills/existing-skill/NOTES.md")
+  skill=$(cat "$fixture/skills/existing-skill/SKILL.md")
+
+  if [ "$notes" = "scratch notes" ] && [ "$skill" = "original" ]; then
+    pass "untracked file beside a CLI-touched file: survives untouched; touched file still reverted"
+  else
+    fail "untracked file beside CLI-touched file: notes=$notes skill=$skill output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_untracked_file_beside_a_cli_touched_file_survives
+
+test_untracked_skill_dir_partially_modified_survives_except_the_change() {
+  local fixture fake_cli output
+  fixture=$(make_fixture)
+  # An entire skill directory that was never committed at all — e.g. a
+  # draft someone is assembling by hand. The CLI below modifies one file in
+  # it (without being asked) but leaves another alone.
+  mkdir -p "$fixture/skills/untracked-skill"
+  echo "note A" > "$fixture/skills/untracked-skill/a.md"
+  echo "note B" > "$fixture/skills/untracked-skill/b.md"
+
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+echo "overwritten" > skills/untracked-skill/a.md
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  local a b
+  a=$(cat "$fixture/skills/untracked-skill/a.md")
+  b=$(cat "$fixture/skills/untracked-skill/b.md")
+
+  if [ "$a" = "note A" ] && [ "$b" = "note B" ] && [ -d "$fixture/skills/wanted-skill" ]; then
+    pass "untracked skill dir partially modified: reverted file restored, untouched sibling file survives"
+  else
+    fail "untracked skill dir partially modified: a=$a b=$b output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_untracked_skill_dir_partially_modified_survives_except_the_change
+
+test_symlinked_skill_dir_replaced_is_reverted_to_symlink() {
+  local fixture fake_cli output
+  fixture=$(make_fixture)
+  (
+    cd "$fixture" || exit
+    mkdir -p other-place/real-skill-target
+    echo "target content" > other-place/real-skill-target/SKILL.md
+    ln -s ../other-place/real-skill-target skills/linked-skill
+    git add -A
+    git commit -q -m "add symlinked skill, mimicking skills/brainstorming -> ../superpowers/..."
+  )
+
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Simulates a future CLI version that replaces a symlinked topdir with a
+# real directory of the same name, without being asked.
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+rm -rf skills/linked-skill
+mkdir -p skills/linked-skill
+echo "overwritten by the flaky CLI" > skills/linked-skill/SKILL.md
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+
+  if [ -L "$fixture/skills/linked-skill" ] && [ "$(readlink "$fixture/skills/linked-skill")" = "../other-place/real-skill-target" ] && [ -d "$fixture/skills/wanted-skill" ]; then
+    pass "symlinked skill dir replaced by a real dir: reverted back to a symlink, not deleted as a brand-new skill"
+  else
+    fail "symlinked skill dir replaced: is_symlink=$([ -L "$fixture/skills/linked-skill" ] && echo yes || echo no) output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_symlinked_skill_dir_replaced_is_reverted_to_symlink
 
 test_cli_failure_is_reported_and_propagated() {
   local fixture fake_cli output exit_code
