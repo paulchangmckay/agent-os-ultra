@@ -82,21 +82,31 @@ hash_skills() {
 # PRE_EXISTING_TOPDIRS must reflect an actual directory listing, not file
 # content hashes — an empty pre-existing directory or a symlinked topdir has
 # no file-content hash lines to derive it from, so it would otherwise be
-# misclassified as "never seen before" and wrongly rm -rf'd wholesale.
+# misclassified as "never seen before" and wrongly rm -rf'd wholesale. No
+# -type filter here: a plain top-level file under skills/ is just as
+# pre-existing as a directory or symlink, and excluding it previously meant
+# the CLI touching one got it misclassified as a brand-new skill and removed.
 PRE_EXISTING_TOPDIRS=()
 while IFS= read -r topdir; do
   [ -n "$topdir" ] && PRE_EXISTING_TOPDIRS+=("$topdir")
 done < <(
-  find skills -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -exec basename {} \; | sort -u
+  find skills -mindepth 1 -maxdepth 1 -exec basename {} \; | sort -u
 )
 
 # Full backup of skills/ before the CLI runs, so a revert can restore the
 # exact prior bytes/symlink at an exact path instead of resetting an entire
 # directory via git. -a (archive) preserves symlinks as symlinks rather than
 # following them.
-BACKUP_DIR=$(mktemp -d)
+if ! BACKUP_DIR=$(mktemp -d); then
+  echo "ERROR: mktemp -d failed — cannot create a backup before running the install. Aborting without running the CLI." >&2
+  exit 1
+fi
 trap 'rm -rf "$BACKUP_DIR"' EXIT
-cp -a skills "$BACKUP_DIR/skills-before"
+
+if ! cp -a skills "$BACKUP_DIR/skills-before"; then
+  echo "ERROR: failed to back up skills/ to $BACKUP_DIR/skills-before — cannot safely run the install without a backup. Aborting without running the CLI." >&2
+  exit 1
+fi
 
 HEAD_BEFORE=$(git rev-parse HEAD)
 HASHES_BEFORE=$(hash_skills)
@@ -166,12 +176,42 @@ for rel in "${CHANGED_RELPATHS[@]+"${CHANGED_RELPATHS[@]}"}"; do
   fi
 done
 
+# Refuse to run any destructive rm -rf through a symlink anywhere above the
+# target path, no matter how that path got classified above. Defense in
+# depth for N1: even if the topdir-level symlink skip below has a gap, this
+# still catches it before anything is deleted.
+path_has_symlink_ancestor() {
+  local path="$1" dir
+  dir=$(dirname -- "$path")
+  while [ "$dir" != "." ] && [ "$dir" != "/" ] && [ "$dir" != "skills" ]; do
+    if [ -L "$dir" ]; then
+      return 0
+    fi
+    dir=$(dirname -- "$dir")
+  done
+  return 1
+}
+
 REVERTED_SUMMARY=()
 for topdir in "${CHANGED_TOPDIRS[@]+"${CHANGED_TOPDIRS[@]}"}"; do
   if name_in "$topdir" "${NAMES[@]}"; then
     continue
   fi
   if name_in "$topdir" "${PRE_EXISTING_TOPDIRS[@]+"${PRE_EXISTING_TOPDIRS[@]}"}"; then
+    # If this topdir was itself a symlink before the CLI ran, restoring that
+    # symlink fully resolves its identity. Nothing "inside" it — reachable
+    # only by walking through the restored symlink — is safe for this
+    # script to touch, so skip every other changed path under this topdir
+    # entirely rather than processing them against the backup (N1).
+    backup_topdir_path="$BACKUP_DIR/skills-before/$topdir"
+    if [ -L "$backup_topdir_path" ]; then
+      live_topdir_path="skills/$topdir"
+      rm -rf "$live_topdir_path"
+      cp -a "$backup_topdir_path" "$live_topdir_path"
+      REVERTED_SUMMARY+=("unrequested overwrite of existing skill '$topdir': reverted (restored symlink)")
+      continue
+    fi
+
     # Revert exactly the paths that changed under this topdir — never the
     # whole directory. A path present in the backup gets copied back
     # (cp -a overwrites a now-mismatched type, e.g. a symlink replaced by a
@@ -184,6 +224,10 @@ for topdir in "${CHANGED_TOPDIRS[@]+"${CHANGED_TOPDIRS[@]}"}"; do
       esac
       backup_path="$BACKUP_DIR/skills-before/$rel"
       live_path="skills/$rel"
+      if path_has_symlink_ancestor "$live_path"; then
+        echo "WARNING: skipping '$live_path' — a parent directory is a symlink; refusing to operate through it." >&2
+        continue
+      fi
       if [ -e "$backup_path" ] || [ -L "$backup_path" ]; then
         rm -rf "$live_path"
         mkdir -p "$(dirname "$live_path")"

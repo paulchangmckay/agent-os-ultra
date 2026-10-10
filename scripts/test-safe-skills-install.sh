@@ -444,10 +444,20 @@ FAKECLI
 
   output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
 
-  if [ -L "$fixture/skills/linked-skill" ] && [ "$(readlink "$fixture/skills/linked-skill")" = "../other-place/real-skill-target" ] && [ -d "$fixture/skills/wanted-skill" ]; then
-    pass "symlinked skill dir replaced by a real dir: reverted back to a symlink, not deleted as a brand-new skill"
+  # N1 regression check: a prior fix correctly restored the symlink itself
+  # but then processed "linked-skill/SKILL.md" as a separate changed path,
+  # which — resolved through the now-restored symlink — pointed at the REAL
+  # target file outside any backup and got rm -rf'd. The symlink-is-restored
+  # assertion alone passed even with that bug present, which is exactly how
+  # it slipped through last time; the target file's content must be checked
+  # too.
+  local target_content
+  target_content=$(cat "$fixture/other-place/real-skill-target/SKILL.md" 2>/dev/null)
+
+  if [ -L "$fixture/skills/linked-skill" ] && [ "$(readlink "$fixture/skills/linked-skill")" = "../other-place/real-skill-target" ] && [ -d "$fixture/skills/wanted-skill" ] && [ "$target_content" = "target content" ]; then
+    pass "symlinked skill dir replaced by a real dir: reverted back to a symlink, symlink's real target file survives untouched"
   else
-    fail "symlinked skill dir replaced: is_symlink=$([ -L "$fixture/skills/linked-skill" ] && echo yes || echo no) output=$output"
+    fail "symlinked skill dir replaced: is_symlink=$([ -L "$fixture/skills/linked-skill" ] && echo yes || echo no) target_content=$target_content output=$output"
   fi
 
   cleanup_fixture "$fixture"
@@ -455,6 +465,50 @@ FAKECLI
 }
 
 test_symlinked_skill_dir_replaced_is_reverted_to_symlink
+
+test_plain_top_level_file_touched_by_cli_survives() {
+  local fixture fake_cli output
+  fixture=$(make_fixture)
+  (
+    cd "$fixture" || exit
+    # A plain regular file directly under skills/ — not a skill directory
+    # or a symlink. PRE_EXISTING_TOPDIRS used to be built from a `find`
+    # filtered to -type d -o -type l, so a file here was invisible to it
+    # and got misclassified as "an entirely new unrequested skill" the
+    # moment the CLI touched it (N2).
+    echo "original readme" > skills/README.md
+    git add -A
+    git commit -q -m "add top-level README.md"
+  )
+
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Installs the requested skill, and also rewrites an unrequested top-level
+# plain file while it's at it.
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+echo "overwritten by the flaky CLI" > skills/README.md
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  output=$(cd "$fixture" && SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  local content
+  content=$(cat "$fixture/skills/README.md" 2>/dev/null)
+
+  if [ "$content" = "original readme" ] && [ -d "$fixture/skills/wanted-skill" ]; then
+    pass "plain top-level file touched by CLI: recognized as pre-existing, reverted rather than deleted as a new skill"
+  else
+    fail "plain top-level file touched by CLI: content=$content output=$output"
+  fi
+
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_plain_top_level_file_touched_by_cli_survives
 
 test_cli_failure_is_reported_and_propagated() {
   local fixture fake_cli output exit_code
@@ -535,6 +589,86 @@ FAKECLI
 }
 
 test_full_occurrence_2_reproduction
+
+test_mktemp_failure_aborts_before_running_cli() {
+  local fixture fake_cli fake_bin output exit_code
+  fixture=$(make_fixture)
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Should never run — the backup step (mktemp -d) is supposed to fail first
+# and abort before the CLI is ever invoked (N4).
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+touch cli-ran-marker
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  fake_bin=$(mktemp -d)
+  cat > "$fake_bin/mktemp" <<'FAKEMKTEMP'
+#!/usr/bin/env bash
+exit 1
+FAKEMKTEMP
+  chmod +x "$fake_bin/mktemp"
+
+  output=$(cd "$fixture" && PATH="$fake_bin:$PATH" SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  exit_code=$?
+
+  if [ "$exit_code" -ne 0 ] && echo "$output" | grep -qi "mktemp" && [ ! -e "$fixture/cli-ran-marker" ]; then
+    pass "mktemp failure: aborts non-zero before running the CLI"
+  else
+    fail "mktemp failure: exit=$exit_code output=$output cli_ran=$([ -e "$fixture/cli-ran-marker" ] && echo yes || echo no)"
+  fi
+
+  rm -rf "$fake_bin"
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_mktemp_failure_aborts_before_running_cli
+
+test_backup_cp_failure_aborts_before_running_cli() {
+  local fixture fake_cli fake_bin output exit_code
+  fixture=$(make_fixture)
+  fake_cli=$(mktemp)
+  cat > "$fake_cli" <<'FAKECLI'
+#!/usr/bin/env bash
+# Should never run — the backup step (cp -a skills ...) is supposed to fail
+# first and abort before the CLI is ever invoked (N4).
+shift
+mkdir -p "skills/$1"
+echo "content" > "skills/$1/SKILL.md"
+touch cli-ran-marker
+exit 0
+FAKECLI
+  chmod +x "$fake_cli"
+
+  # A fake `cp` that always fails, standing in for a real backup failure
+  # (disk full, permissions, etc.) without needing to actually induce one.
+  fake_bin=$(mktemp -d)
+  cat > "$fake_bin/cp" <<'FAKECP'
+#!/usr/bin/env bash
+exit 1
+FAKECP
+  chmod +x "$fake_bin/cp"
+
+  output=$(cd "$fixture" && PATH="$fake_bin:$PATH" SAFE_SKILLS_INSTALL_CLI="$fake_cli" "$SUT" fake/repo wanted-skill 2>&1)
+  exit_code=$?
+
+  if [ "$exit_code" -ne 0 ] && echo "$output" | grep -qi "back up\|backup" && [ ! -e "$fixture/cli-ran-marker" ]; then
+    pass "backup cp failure: aborts non-zero before running the CLI"
+  else
+    fail "backup cp failure: exit=$exit_code output=$output cli_ran=$([ -e "$fixture/cli-ran-marker" ] && echo yes || echo no)"
+  fi
+
+  rm -rf "$fake_bin"
+  cleanup_fixture "$fixture"
+  rm -f "$fake_cli"
+}
+
+test_backup_cp_failure_aborts_before_running_cli
 
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
