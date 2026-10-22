@@ -112,14 +112,15 @@ Label this block with a header line: `### Brand Spec JSON` so downstream skills 
 
 ## Prose Mechanics — The Elements of Style
 
-Adapted from William Strunk Jr.'s *The Elements of Style* (1920, public domain). Every output passes these checks before the brand gate clears, regardless of tone:
+Adapted from William Strunk Jr.'s *The Elements of Style* (1920, public domain). Every output containing prose passes these checks before the brand gate clears, regardless of tone:
 
-- **No filler nouns.** `case`, `character`, `factor`, `feature`, `nature`, `system` used as padding (e.g. "acts of a hostile character") signal the real subject is hiding — recast the sentence around the concrete noun or verb instead of patching the word.
+- **No filler nouns.** `case`, `character`, `factor`, `feature`, `nature`, `system` used as padding (e.g. "acts of a hostile character") signal the real subject is hiding — recast the sentence around the concrete noun or verb instead of patching the word. (Word list mirrored in `anti-slop-prose/SKILL.md`'s own filler-noun bullet — keep both in sync if either changes.)
 - **No comma splices.** Never join two independent clauses with a bare comma. Use a semicolon, a period, or a coordinating conjunction with a comma before it. If the second clause opens with an adverb (`however`, `therefore`, `accordingly`), use a semicolon — never a comma.
 - **Parallel construction.** Co-ordinate ideas take matching grammatical form (a list of gerunds stays gerunds; a list of infinitives stays infinitives).
 - **Active voice by default.** Passive only when the paragraph's real subject is the thing acted upon.
 - **End-emphasis.** Put the word or phrase you want the reader to remember at the end of the sentence — the position of emphasis.
 - **Recast, don't patch.** When a word choice feels wrong, rewrite the sentence from its actual subject rather than swapping in a synonym.
+- **Never add em dashes.** Applies to every prose-bearing output this gate covers, including the deliverable types `anti-slop-prose` never fires on (decks, PDFs, business cards) — use a comma, a period, or a semicolon instead. (Mirrors `anti-slop-prose/SKILL.md`'s own rule — keep both in sync if either changes.)
 
 ## When Invoked Explicitly (/brand)
 
