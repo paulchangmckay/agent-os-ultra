@@ -126,6 +126,15 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-dangerous-git.sh"
+          }
+        ]
+      },
+      {
         "matcher": "Read",
         "hooks": [
           {
