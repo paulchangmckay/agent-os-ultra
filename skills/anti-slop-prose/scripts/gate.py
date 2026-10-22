@@ -237,6 +237,9 @@ def main() -> int:
         help="Require this literal text in the deliverable; may be repeated",
     )
     args = parser.parse_args()
+    if args.stdin and args.input_file:
+        print("Error: --stdin and input_file are mutually exclusive — pass one or the other.", file=sys.stderr)
+        return 2
     if args.stdin or not args.input_file:
         text = sys.stdin.read()
     else:

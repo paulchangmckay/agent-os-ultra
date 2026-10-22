@@ -12,10 +12,10 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class GenrePolicy:
     name: str
-    conversational: bool
+    conversational: bool  # reserved: not read by gate.py's evaluate() yet
     require_contractions: bool
     allow_fragments: bool
-    check_nominalizations: bool
+    check_nominalizations: bool  # reserved: not read by gate.py's evaluate() yet
 
 
 POLICIES = {

@@ -4509,6 +4509,23 @@
       ],
       "occurrences": 1,
       "last_seen": "2026-09-05T00:00:00.000Z"
+    },
+    {
+      "id": "bug-280",
+      "timestamp": "2026-10-22T03:00:00.000Z",
+      "error_message": "git reset -- $files silently resets the entire index to HEAD when $files is empty",
+      "file": "skills/bloat-audit/SKILL.md",
+      "root_cause": "git reset -- <pathspec> scopes the reset to those paths, but git reset -- with an EMPTY pathspec falls back to \"reset everything\" semantics -- piping an empty shell variable into the pathspec position silently drops the pathspec entirely rather than matching nothing.",
+      "fix": "Replaced the git add -N (intent-to-add) + git reset -- cleanup mechanism entirely with git diff --no-index -- /dev/null <file>, which compares paths directly and never touches the index -- no pathspec-emptiness edge case to guard, nothing to clean up.",
+      "tags": [
+        "git",
+        "shell-scripting",
+        "skill-authoring",
+        "data-loss-risk"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-22T03:00:00.000Z"
     }
   ]
 }

@@ -4,6 +4,9 @@
 Read this reference when stock wording is dense enough to obscure the actual
 claim. Individual words are never banned.
 
+For UI/visual anti-slop guidance, see
+[`skills/shared-references/anti-slop-tells.md`](../../shared-references/anti-slop-tells.md).
+
 Corpus studies and Wikipedia editing experience show that model output can
 overuse clusters such as `delve`, `tapestry`, `pivotal`, `robust`, `showcase`,
 `underscore`, and `vibrant`. The cluster changes across model versions and also

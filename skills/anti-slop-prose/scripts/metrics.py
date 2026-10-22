@@ -177,6 +177,9 @@ def main():
     parser.add_argument('--stdin', action='store_true', help='Read from stdin')
     parser.add_argument('--json', action='store_true', help='Output raw JSON')
     args = parser.parse_args()
+    if args.stdin and args.input_file:
+        print("Error: --stdin and input_file are mutually exclusive — pass one or the other.", file=sys.stderr)
+        sys.exit(2)
     if args.stdin or not args.input_file:
         text = sys.stdin.read()
     else:
