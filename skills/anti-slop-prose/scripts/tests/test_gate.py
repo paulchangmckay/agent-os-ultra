@@ -1,11 +1,14 @@
 # Adapted from udaysharmadev/Not-Ai — see THIRD_PARTY_NOTICES.md
+import io
 import sys
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from gate import evaluate  # noqa: E402
+from gate import evaluate, main  # noqa: E402
 
 
 class GateTests(unittest.TestCase):
@@ -68,6 +71,22 @@ class GateTests(unittest.TestCase):
         result = evaluate("This robust, groundbreaking solution leverages a seamless framework.", "technical")
         rules = [item.rule for item in result.findings]
         self.assertIn("tier-2-vocabulary", rules)
+
+
+class CliArgumentTests(unittest.TestCase):
+    def test_stdin_and_input_file_together_is_an_error(self):
+        tmp_path = Path(__file__).resolve().parent / "_tmp_cli_test_input.txt"
+        tmp_path.write_text("placeholder text for the test file", encoding="utf-8")
+        try:
+            stderr = io.StringIO()
+            with patch.object(sys, "argv", ["gate.py", str(tmp_path), "--stdin"]):
+                with redirect_stderr(stderr):
+                    returncode = main()
+            self.assertEqual(returncode, 2)
+            self.assertIn("--stdin", stderr.getvalue())
+            self.assertIn("mutually exclusive", stderr.getvalue())
+        finally:
+            tmp_path.unlink()
 
 
 if __name__ == "__main__":

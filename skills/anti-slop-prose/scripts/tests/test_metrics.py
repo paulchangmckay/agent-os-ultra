@@ -1,10 +1,13 @@
+import io
 import sys
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from metrics import analyze  # noqa: E402
+from metrics import analyze, main  # noqa: E402
 
 
 class MetricsTests(unittest.TestCase):
@@ -36,6 +39,23 @@ class MetricsTests(unittest.TestCase):
     def test_stance_balance_absent_with_no_markers(self):
         result = analyze("The deploy finished at 2:14 a.m. It rolled back cleanly.")
         self.assertEqual(result["tone_markers"]["stance_balance"], "absent")
+
+
+class CliArgumentTests(unittest.TestCase):
+    def test_stdin_and_input_file_together_is_an_error(self):
+        tmp_path = Path(__file__).resolve().parent / "_tmp_cli_test_input.txt"
+        tmp_path.write_text("placeholder text for the test file", encoding="utf-8")
+        try:
+            stderr = io.StringIO()
+            with patch.object(sys, "argv", ["metrics.py", str(tmp_path), "--stdin"]):
+                with redirect_stderr(stderr):
+                    with self.assertRaises(SystemExit) as ctx:
+                        main()
+            self.assertEqual(ctx.exception.code, 2)
+            self.assertIn("--stdin", stderr.getvalue())
+            self.assertIn("mutually exclusive", stderr.getvalue())
+        finally:
+            tmp_path.unlink()
 
 
 if __name__ == "__main__":
