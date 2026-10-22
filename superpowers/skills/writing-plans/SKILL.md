@@ -162,6 +162,8 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **4. Pattern verification:** For any new component explicitly modeled on an existing one ("mirror the existing X pattern"), read the actual current definition of every sibling in that lineage, not just the nearest one — siblings that look parallel (e.g. a game→season→career aggregation chain) can each have evolved their own convention independently.
 
+**5. Non-happy-path trace:** For any task whose deliverable is nontrivial executable logic (not just config/text), trace or mentally execute each non-happy-path branch the plan's own code snippets define — error paths, concurrent/backgrounded operations, cross-path consistency of a shared data shape, what happens when an optional parameter is omitted. A missing `|| true` guard under `set -e`, or two code paths handling the same shared value in different shapes, is neither a placeholder nor a naming mismatch, so checks 1–4 won't catch it — only actually tracing the logic will. This check exists because task review and the final whole-branch review can catch these too, but catching them here is cheaper: before an implementer has built on top of the bug.
+
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 
 ## Execution Handoff
