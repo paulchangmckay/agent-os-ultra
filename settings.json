@@ -344,6 +344,14 @@
             "timeout": 130
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "deck hook"
+          }
+        ]
       }
     ],
     "StopFailure": [
@@ -444,7 +452,8 @@
     "neuroarxiv@neuroarxiv": true,
     "iso-24495-plain-language@iso-24495": true,
     "refero@refero": true,
-    "agent-stylebooks@agent-stylebooks": true
+    "agent-stylebooks@agent-stylebooks": true,
+    "typesafe@typesafe-ai": true
   },
   "extraKnownMarketplaces": {
     "understand-anything": {
@@ -481,6 +490,12 @@
       "source": {
         "source": "github",
         "repo": "Neeeophytee/agent-stylebooks"
+      }
+    },
+    "typesafe-ai": {
+      "source": {
+        "source": "github",
+        "repo": "typesafe-ai/skills"
       }
     }
   },
